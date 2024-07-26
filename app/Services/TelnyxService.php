@@ -40,7 +40,7 @@ class TelnyxService
                 'to' => $to,
                 'from' => $from,
                 'connection_id' => '2472569862463948031',
-                'stream_url' => 'https://salesgod.pagekite.me',
+                'stream_url' => 'ws://callingfeature.scrumad.com:5000',
                 'direction' => 'both',
                 'media_format' => 'audio/opus',
                 'stream_track' => 'both_tracks',
