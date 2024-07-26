@@ -1,0 +1,27 @@
+{
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-vue": "^4.2.3",
+        "axios": "^1.4",
+        "laravel-vite-plugin": "^0.7.8",
+        "vite": "^4.3.9",
+        "vue": "^3.3.4"
+    },
+    "type": "module",
+    "dependencies": {
+        "body-parser": "^1.20.2",
+        "express": "^4.19.2",
+        "http-proxy-middleware": "^3.0.0",
+        "vue-cookie-next": "^1.3.0",
+        "vue-loader": "^17.2.2",
+        "vue-next-select": "^2.10.5",
+        "vue-router": "^4.2.2",
+        "vue-toastification": "^2.0.0-rc.5",
+        "vue3-apexcharts": "^1.4.4",
+        "ws": "^8.18.0"
+    }
+}

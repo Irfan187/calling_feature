@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+      "target": "es5",
+      "module": "es2020",
+      "moduleResolution": "node",
+      "esModuleInterop": true,
+      "jsx": "preserve",
+      "baseUrl": "./",
+      "strict": true,                 // Enable strict type-checking options
+      "skipLibCheck": true,           // Skip type checking of declaration files
+      "noImplicitAny": false,          // Bypass raising errors on `any` type
+      "paths": {
+        "@/*": ["resources/js/*"],
+        "~/*": ["node_modules/*"],
+        "bootstrap/dist/js/bootstrap" : ["./node_modules/types/bootstrap"],
+        "bootstrap" : ["./node_modules/types/bootstrap"]
+      },
+    },
+    "include": [
+      "resources/js/**/*.js",
+      "resources/js/**/*.vue",
+      ]  // Frontend paths pattern
+  }
