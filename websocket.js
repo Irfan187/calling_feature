@@ -1,7 +1,9 @@
 import { WebSocketServer } from 'ws';
 
-const HOST = 'ws://callingfeature.scrumad.com:5000';
-const wss = new WebSocketServer({ port: 5000, host: 'ws://callingfeature.scrumad.com' });
+import http from 'http';
+
+const server = http.createServer();
+const wss = new WebSocketServer({ server });
 
 wss.on('connection', function connection(ws) {
   ws.on('message', function message(data) {
