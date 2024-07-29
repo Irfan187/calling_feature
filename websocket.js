@@ -5,6 +5,7 @@ const ws = new WebSocket('ws://callingfeature.scrumad.com:5000');
 ws.on('open', function open() {
   console.log('connected');
   ws.send('Welcome to the WebSocket server!');
+  console.log('Welcome to the WebSocket server!');
 });
 
 ws.on('close', function close() {
