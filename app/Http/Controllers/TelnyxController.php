@@ -41,9 +41,10 @@ class TelnyxController extends Controller
     {
         $event = $request['data']['event_type'];
         logger($event);
+        logger($request->all());
         if ($event === 'call.initiated') {
             $callControlId = $request['data']['payload']['call_control_id'];
-            logger($request->all());
+            
 
             try {
                 // $response = $this->client->post('calls/'.$callControlId.'/actions/stream_start', [
