@@ -14,3 +14,7 @@ ws.on('close', function close() {
 ws.on('message', function message(data) {
   console.log('received: %s', data);
 });
+
+ws.on("listening", () => {
+  console.log("Server running at port 5000 is listening");
+});
