@@ -13,3 +13,10 @@ wss.on('connection', function connection(ws) {
 
   ws.send('something');
 });
+server.listen(5000, () => {
+  console.log("Server running at port 5000");
+});
+
+wss.on("listening", () => {
+  console.log("Server running at port 5000 is listening");
+});
