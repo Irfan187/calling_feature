@@ -1,22 +1,16 @@
-import { WebSocketServer } from 'ws';
+import WebSocket from 'ws';
 
-import http from 'http';
+const ws = new WebSocket('ws://callingfeature.scrumad.com:5000');
 
-const server = http.createServer();
-console.log(server);
-const wss = new WebSocketServer({ server });
-
-wss.on('connection', function connection(ws) {
-  ws.on('message', function message(data) {
-    console.log('received: %s', data);
-  });
-
-  ws.send('something');
-});
-server.listen(5000, () => {
-  console.log("Server running at port 5000");
+ws.on('open', function open() {
+  console.log('connected');
+  ws.send(Date.now());
 });
 
-wss.on("listening", () => {
-  console.log("Server running at port 5000 is listening");
+ws.on('close', function close() {
+  console.log('disconnected');
+});
+
+ws.on('message', function message(data) {
+  console.log('received: %s', data);
 });
