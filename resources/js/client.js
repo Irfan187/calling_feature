@@ -1,20 +1,22 @@
-import WebSocket from 'ws';
+// import WebSocket from 'ws';
 
 const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
-ws.on('error', console.error);
+ws.onerror((ws,error) => {
+    console.log(error);
+});
 
-ws.on('open', function open() {
+ws.onopen((ws, event) => {
   console.log('connected');
   ws.send('dsadsfdsfdfs');
 });
 
-ws.on('close', function close() {
+ws.onclose((ws, event) => {
   console.log('disconnected');
 });
 
-ws.on('message', function message(data) {
-  console.log(data);
+ws.onmessage((ws, event) => {
+  console.log(event);
 
   ws.send('dtrrtr');
 });
