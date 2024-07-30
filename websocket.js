@@ -32,17 +32,17 @@
 // wss.on("listening", () => {
 //     console.log("Server running at port 3001 is listening");
 // });
-var https = require('https');
-var fs = require('fs');
-var WebSocketServer = require('websocket').server;
+import { createServer } from 'https';
+import { readFileSync } from 'fs';
+import { server as WebSocketServer } from 'websocket';
 
 var httpsOptions = {
-  key: fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
-  cert: fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt")
+  key: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
+  cert: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt")
 };
 
 
-var httpsServer = https.createServer(httpsOptions, function(request, response) {
+var httpsServer = createServer(httpsOptions, function(request, response) {
   console.log((new Date()) + " Received request for " + request.url);
   response.writeHead(404);
   response.end();
