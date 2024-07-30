@@ -48,10 +48,10 @@ wss.on("connection", (ws) => {
     ws.send("Welcome to the WebSocket server!");
 });
 
-httpsServer.listen(5000, () => {
-    console.log("Server running at port 5000");
+httpsServer.listen(3001, () => {
+    console.log("Server running at port 3001");
 });
 
 wss.on("listening", () => {
-    console.log("Server running at port 5000 is listening");
+    console.log("Server running at port 3001 is listening");
 });
