@@ -2,20 +2,20 @@
 
 const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
-ws.onerror((ws,error) => {
-    console.log(error);
-});
+// ws.onerror((error) => {
+//     console.log(error);
+// });
 
-ws.onopen((ws, event) => {
+ws.onopen((event) => {
   console.log('connected');
   ws.send('dsadsfdsfdfs');
 });
 
-ws.onclose((ws, event) => {
+ws.onclose((event) => {
   console.log('disconnected');
 });
 
-ws.onmessage((ws, event) => {
+ws.onmessage((event) => {
   console.log(event);
 
   ws.send('dtrrtr');
