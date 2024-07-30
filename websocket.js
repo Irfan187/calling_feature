@@ -23,14 +23,14 @@
 // });
 import https from "https";
 import fs from "fs";
-import WebSocket from "ws";
+import { WebSocketServer } from "ws";
 
 const privateKey = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key", "utf8");
 const certificate = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt", "utf8");
 const credentials = { key: privateKey, cert: certificate };
 
-const server = https.createServer(credentials);
-const wss = new WebSocket.Server({ noServer: true });
+const httpsServer = https.createServer(credentials);
+const wss = new WebSocketServer({ server: httpsServer, clientTracking: true, });
 
 wss.on("connection", (ws) => {
     ws.on("message", (message) => {
