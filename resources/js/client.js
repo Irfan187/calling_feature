@@ -10,7 +10,7 @@ ws.onopen = (event) => {
 };
 
 ws.onclose = (event) => {
-  console.log('disconnected');
+  console.log('disconnected',event);
 };
 
 ws.onmessage = (event) => {
