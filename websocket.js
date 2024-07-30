@@ -44,7 +44,7 @@ var httpsOptions = {
 
 var httpsServer = createServer(httpsOptions, function(request, response) {
   console.log((new Date()) + " Received request for " + request.url);
-  response.writeHead(404);
+  // response.writeHead(404);
   response.end();
 });
 

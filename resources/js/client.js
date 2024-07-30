@@ -1,8 +1,8 @@
 const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
-// ws.onerror((error) => {
-//     console.log(error);
-// });
+ws.onerror = (error) => {
+    console.log(error);
+};
 
 ws.onopen = (event) => {
   console.log('connected');
