@@ -42,20 +42,30 @@ var httpsOptions = {
 };
 
 
-var httpsServer = createServer(httpsOptions, function(request, response) {
+var httpsServer = createServer(httpsOptions, function (request, response) {
   console.log((new Date()) + " Received request for " + request.url);
   // response.writeHead(404);
   response.end();
 });
 
-httpsServer.listen(3001, function() {
+httpsServer.listen(3001, function () {
   console.log((new Date()) + " Server is listening on port 6502");
 });
 
 
 console.log("***CREATING WEBSOCKET SERVER");
 var wsServer = new WebSocketServer({
-    httpServer: httpsServer,
-    autoAcceptConnections: false
+  httpServer: httpsServer,
+  autoAcceptConnections: false
 });
 console.log("***CREATED");
+
+wsServer.on('request', function (request) {
+  console.log(request);
+  console.log("Handling request from " + request.origin);
+
+  var connection = request.accept("json", request.origin);
+  connection.on('message', function (message) {
+    console.log("***MESSAGE", message);
+  });
+});
