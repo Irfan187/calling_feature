@@ -1,57 +1,61 @@
-// import WebSocket from 'ws';
+// import https from "https";
+// import fs from "fs";
+// import { WebSocketServer } from "ws";
 
-// const ws = new WebSocket('ws://callingfeature.scrumad.com:5000');
+// const privateKey = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key", "utf8");
+// const certificate = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt", "utf8");
+// const credentials = { key: privateKey, cert: certificate };
 
-// ws.on('open', function open() {
-//   console.log('connected');
-//   ws.send('Welcome to the WebSocket server!');
-//   console.log('Welcome to the WebSocket server!');
+// const httpsServer = https.createServer(credentials);
+// const wss = new WebSocketServer({ server: httpsServer, clientTracking: true, });
+
+// wss.on("connection", (ws) => {
+//     ws.on("message", (message) => {
+//         console.log('Received message:', message);
+//     });
+
+//     ws.on("open", (message) => {
+//         console.log('WebSocket open',message);
+//     });
+
+//     ws.on("close", (code, reason) => {
+//         console.log(`WebSocket closed: code=${code}, reason=${reason}`);
+//     });
+
+//     ws.send("Welcome to the WebSocket server!");
 // });
 
-// ws.on('close', function close() {
-//   console.log('disconnected');
+// httpsServer.listen(3001, () => {
+//     console.log("Server running at port 3001");
 // });
 
-// ws.on('message', function message(data) {
-//   console.log('received: %s', data);
+// wss.on("listening", () => {
+//     console.log("Server running at port 3001 is listening");
 // });
-// ws.on('error', function error(err) {
-//   console.error('WebSocket error:', err);
-// });
-// ws.on("listening", () => {
-//   console.log("Server running at port 5000 is listening");
-// });
-import https from "https";
-import fs from "fs";
-import { WebSocketServer } from "ws";
+var https = require('https');
+var fs = require('fs');
+var WebSocketServer = require('websocket').server;
 
-const privateKey = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key", "utf8");
-const certificate = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt", "utf8");
-const credentials = { key: privateKey, cert: certificate };
+var httpsOptions = {
+  key: fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
+  cert: fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt")
+};
 
-const httpsServer = https.createServer(credentials);
-const wss = new WebSocketServer({ server: httpsServer, clientTracking: true, });
 
-wss.on("connection", (ws) => {
-    ws.on("message", (message) => {
-        console.log('Received message:', message);
-    });
-
-    ws.on("open", (message) => {
-        console.log('WebSocket open',message);
-    });
-
-    ws.on("close", (code, reason) => {
-        console.log(`WebSocket closed: code=${code}, reason=${reason}`);
-    });
-
-    ws.send("Welcome to the WebSocket server!");
+var httpsServer = https.createServer(httpsOptions, function(request, response) {
+  console.log((new Date()) + " Received request for " + request.url);
+  response.writeHead(404);
+  response.end();
 });
 
-httpsServer.listen(3001, () => {
-    console.log("Server running at port 3001");
+httpsServer.listen(3001, function() {
+  console.log((new Date()) + " Server is listening on port 6502");
 });
 
-wss.on("listening", () => {
-    console.log("Server running at port 3001 is listening");
+
+console.log("***CREATING WEBSOCKET SERVER");
+var wsServer = new WebSocketServer({
+    httpServer: httpsServer,
+    autoAcceptConnections: false
 });
+console.log("***CREATED");
