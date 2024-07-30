@@ -68,4 +68,15 @@ wsServer.on('request', function (request) {
   connection.on('message', function (message) {
     console.log("***MESSAGE", message);
   });
+
+  connection.on('close', function(connection) {
+    
+    console.log('connection close :',connection);
+  });
+
+  connection.on('error',function(error){
+    console.log('connection error :',error);
+
+  });
+
 });
