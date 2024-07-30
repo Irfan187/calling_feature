@@ -40,7 +40,7 @@ class TelnyxService
                 'to' => $to,
                 'from' => $from,
                 'connection_id' => '2472569862463948031',
-                'stream_url' => 'ws://callingfeature.scrumad.com:5000',
+                'stream_url' => 'wss://callingfeature.scrumad.com:3001',
                 'direction' => 'both',
                 'media_format' => 'audio/opus',
                 'stream_track' => 'both_tracks',
