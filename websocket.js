@@ -25,8 +25,8 @@ import https from "https";
 import fs from "fs";
 import WebSocket from "ws";
 
-const privateKey = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/private.key", "utf8");
-const certificate = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/cert.pem", "utf8");
+const privateKey = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key", "utf8");
+const certificate = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.crt", "utf8");
 const credentials = { key: privateKey, cert: certificate };
 
 const server = https.createServer(credentials);
