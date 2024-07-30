@@ -1,23 +1,57 @@
-import WebSocket from 'ws';
+// import WebSocket from 'ws';
 
-const ws = new WebSocket('ws://callingfeature.scrumad.com:5000');
+// const ws = new WebSocket('ws://callingfeature.scrumad.com:5000');
 
-ws.on('open', function open() {
-  console.log('connected');
-  ws.send('Welcome to the WebSocket server!');
-  console.log('Welcome to the WebSocket server!');
+// ws.on('open', function open() {
+//   console.log('connected');
+//   ws.send('Welcome to the WebSocket server!');
+//   console.log('Welcome to the WebSocket server!');
+// });
+
+// ws.on('close', function close() {
+//   console.log('disconnected');
+// });
+
+// ws.on('message', function message(data) {
+//   console.log('received: %s', data);
+// });
+// ws.on('error', function error(err) {
+//   console.error('WebSocket error:', err);
+// });
+// ws.on("listening", () => {
+//   console.log("Server running at port 5000 is listening");
+// });
+import https from "https";
+import fs from "fs";
+import WebSocket from "ws";
+
+const privateKey = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/private.key", "utf8");
+const certificate = fs.readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/cert.pem", "utf8");
+const credentials = { key: privateKey, cert: certificate };
+
+const server = https.createServer(credentials);
+const wss = new WebSocket.Server({ noServer: true });
+
+wss.on("connection", (ws) => {
+    ws.on("message", (message) => {
+        console.log('Received message:', ${message});
+    });
+
+    ws.on("open", (message) => {
+        console.log('WebSocket open',message);
+    });
+
+    ws.on("close", (code, reason) => {
+        console.log(`WebSocket closed: code=${code}, reason=${reason}`);
+    });
+
+    ws.send("Welcome to the WebSocket server!");
 });
 
-ws.on('close', function close() {
-  console.log('disconnected');
+server.listen(3001, () => {
+    console.log("Server running at port 3001");
 });
 
-ws.on('message', function message(data) {
-  console.log('received: %s', data);
-});
-ws.on('error', function error(err) {
-  console.error('WebSocket error:', err);
-});
-ws.on("listening", () => {
-  console.log("Server running at port 5000 is listening");
+wss.on("listening", () => {
+    console.log("Server running at port 3001 is listening");
 });
