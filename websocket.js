@@ -60,6 +60,10 @@ var wsServer = new WebSocketServer({
 });
 console.log("***CREATED");
 
+function originIsAllowed(origin) {
+  // put logic here to detect whether the specified origin is allowed.
+  return true;
+}
 wsServer.on('request', function (request) {
   if (!originIsAllowed(request.origin)) {
     request.reject();
