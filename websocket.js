@@ -63,7 +63,7 @@ console.log("***CREATED");
 wsServer.on('request', function (request) {
   console.log("Handling request from " + request.origin);
 
-  var connection = request.accept("https", request.origin);
+  var connection = request.accept("wss", request.origin);
   console.log("connection generated ----------------- " + connection);
 
   connection.on('message', function (message) {
