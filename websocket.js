@@ -61,10 +61,9 @@ var wsServer = new WebSocketServer({
 console.log("***CREATED");
 
 wsServer.on('request', function (request) {
-  console.log(request);
   console.log("Handling request from " + request.origin);
 
-  var connection = request.accept("json", request.origin);
+  var connection = request.accept("https", request.origin);
   connection.on('message', function (message) {
     console.log("***MESSAGE", message);
   });
