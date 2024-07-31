@@ -1,7 +1,7 @@
 const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
 ws.onerror = (error) => {
-    console.log(error);
+    console.log('fdgdfg');
 };
 
 ws.onopen = (event) => {
