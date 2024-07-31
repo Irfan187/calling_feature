@@ -60,24 +60,47 @@ var wsServer = new WebSocketServer({
 });
 console.log("***CREATED");
 
-wsServer.on('request', function (request) {
-  console.log("Handling request from " + request.origin);
+// wsServer.on('request', function (request) {
+//   console.log("Handling request from " + request.origin);
 
-  var connection = request.accept("wss", request.origin);
-  console.log("connection generated ----------------- " + connection);
+//   var connection = request.accept("wss", request.origin);
+//   console.log("connection generated ----------------- " + connection);
+
+//   connection.on('message', function (message) {
+//     console.log("***MESSAGE", message);
+//   });
+
+//   connection.on('close', function(connection) {
+
+//     console.log('connection close :',connection);
+//   });
+
+//   connection.on('error',function(error){
+//     console.log('connection error :',error);
+
+//   });
+wsServer.on('request', function (request) {
+  if (!originIsAllowed(request.origin)) {
+    request.reject();
+    console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
+    return;
+  }
+
+  const connection = request.accept(null, request.origin);
+  console.log((new Date()) + ' Connection accepted.');
 
   connection.on('message', function (message) {
-    console.log("***MESSAGE", message);
+    if (message.type === 'utf8') {
+      console.log('Received Message: ' + message.utf8Data);
+      connection.sendUTF(message.utf8Data);
+    } else if (message.type === 'binary') {
+      console.log('Received Binary Message of ' + message.binaryData.length + ' bytes');
+      connection.sendBytes(message.binaryData);
+    }
   });
 
-  connection.on('close', function(connection) {
-    
-    console.log('connection close :',connection);
-  });
-
-  connection.on('error',function(error){
-    console.log('connection error :',error);
-
+  connection.on('close', function (reasonCode, description) {
+    console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
   });
 
 });
