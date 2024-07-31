@@ -60,25 +60,6 @@ var wsServer = new WebSocketServer({
 });
 console.log("***CREATED");
 
-// wsServer.on('request', function (request) {
-//   console.log("Handling request from " + request.origin);
-
-//   var connection = request.accept("wss", request.origin);
-//   console.log("connection generated ----------------- " + connection);
-
-//   connection.on('message', function (message) {
-//     console.log("***MESSAGE", message);
-//   });
-
-//   connection.on('close', function(connection) {
-
-//     console.log('connection close :',connection);
-//   });
-
-//   connection.on('error',function(error){
-//     console.log('connection error :',error);
-
-//   });
 wsServer.on('request', function (request) {
   if (!originIsAllowed(request.origin)) {
     request.reject();
