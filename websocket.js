@@ -49,7 +49,7 @@ var httpsServer = createServer(httpsOptions, function (request, response) {
 });
 
 httpsServer.listen(3001, function () {
-  console.log((new Date()) + " Server is listening on port 6502");
+  console.log((new Date()) + " Server is listening on port 3001");
 });
 
 
@@ -64,6 +64,8 @@ wsServer.on('request', function (request) {
   console.log("Handling request from " + request.origin);
 
   var connection = request.accept("https", request.origin);
+  console.log("connection generated ----------------- " + connection);
+
   connection.on('message', function (message) {
     console.log("***MESSAGE", message);
   });
