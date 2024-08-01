@@ -54,8 +54,11 @@ wsServer.on('request', function (request) {
     const decodedData = decoder.decode(message);
         // Process the decoded audio data or relay it to other clients
         wsServer.clients.forEach(function each(client) {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
+            console.log('Logging here');
+            if (client.readyState === WebSocket.OPEN) {
+                console.log('Logging here 333333333333333333333333333');
                 client.send(decodedData);
+
             }
         });
   });
