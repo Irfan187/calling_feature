@@ -1,7 +1,6 @@
 import { createServer } from 'https';
 import { readFileSync } from 'fs';
 import { server as WebSocketServer } from 'websocket';
-const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
 var httpsOptions = {
   key: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
