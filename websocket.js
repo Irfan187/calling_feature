@@ -41,6 +41,7 @@ wsServer.on('request', function (request) {
   console.log((new Date()) + ' Connection accepted.');
 
   connection.on('message', function (message) {
+    console.log('Message in connection : ',message);
     const data = JSON.parse(message);
         const { stream_id, payload } = data;
 
