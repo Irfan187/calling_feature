@@ -40,7 +40,7 @@ wsServer.on('request', function (request) {
   const connection = request.accept(null, request.origin);
   console.log((new Date()) + ' Connection accepted.');
 
-  connection.on('message', function (event) {
+  connection.on('message', function (message) {
     const data = JSON.parse(message);
         const { stream_id, payload } = data;
 
