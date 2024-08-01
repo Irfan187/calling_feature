@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { server as WebSocketServer } from 'websocket';
 const Opus = require('node-opus');
 const decoder = new Opus.Decoder(48000, 1); // 48kHz sampling rate, mono channel
-
+const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
 var httpsOptions = {
   key: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
@@ -44,23 +44,21 @@ wsServer.on('request', function (request) {
   console.log((new Date()) + ' Connection accepted.');
 
   connection.on('message', function (event) {
-    // if (message.type === 'utf8') {
-    //   console.log('Received Message: ' + message.utf8Data);
-    //   connection.sendUTF(message.utf8Data);
-    // } else if (message.type === 'binary') {
-    //   console.log('Received Binary Message of ' + message.binaryData.length + ' bytes');
-    //   connection.sendBytes(message.binaryData);
-    // }
-    const decodedData = decoder.decode(message);
-        // Process the decoded audio data or relay it to other clients
-        wsServer.clients.forEach(function each(client) {
-            console.log('Logging here');
-            if (client.readyState === WebSocket.OPEN) {
-                console.log('Logging here 333333333333333333333333333');
-                client.send(decodedData);
+    const data = JSON.parse(message);
+        const { stream_id, payload } = data;
 
-            }
-        });
+        // Process the audio data based on the stream ID
+        if (stream_id) {
+            console.log(`Received audio data for stream ID ${stream_id}`);
+            // Example: Broadcast the audio data to other clients with the same stream ID
+            ws.clients.forEach(client => {
+                if (client != ws && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ stream_id, payload }));
+                }
+            });
+        } else {
+            console.error('Stream ID missing in the message');
+        }
   });
 
   connection.on('close', function (reasonCode, description) {
