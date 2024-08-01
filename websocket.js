@@ -42,21 +42,21 @@ wsServer.on('request', function (request) {
 
   connection.on('message', function (message) {
     console.log('Message in connection : ',message);
-    const data = JSON.parse(message);
-        const { stream_id, payload } = data;
+  //   const data = JSON.parse(message);
+  //       const { stream_id, payload } = data;
 
-        // Process the audio data based on the stream ID
-        if (stream_id) {
-            console.log(`Received audio data for stream ID ${stream_id}`);
-            // Example: Broadcast the audio data to other clients with the same stream ID
-            ws.clients.forEach(client => {
-                if (client != ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ stream_id, payload }));
-                }
-            });
-        } else {
-            console.error('Stream ID missing in the message'); 
-        }
+  //       // Process the audio data based on the stream ID
+  //       if (stream_id) {
+  //           console.log(`Received audio data for stream ID ${stream_id}`);
+  //           // Example: Broadcast the audio data to other clients with the same stream ID
+  //           ws.clients.forEach(client => {
+  //               if (client != ws && client.readyState === WebSocket.OPEN) {
+  //                   client.send(JSON.stringify({ stream_id, payload }));
+  //               }
+  //           });
+  //       } else {
+  //           console.error('Stream ID missing in the message'); 
+  //       }
   });
 
   connection.on('close', function (reasonCode, description) {
