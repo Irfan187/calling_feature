@@ -49,7 +49,7 @@ ws.onclose = (event) => {
   console.log('disconnected',event);
 };
 
-ws.onmessage = (event) => {
+ws.onmessage = (message) => {
     if (message.event === 'error') {
         console.error('Stream Error:', message.payload.detail);
     } else {
