@@ -5,9 +5,19 @@ async function startAudioCapture() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         return stream;
     } catch (err) {
-        console.error('Error capturing audio:', err);
+        if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            console.error('Error capturing audio: No microphone found.');
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            console.error('Error capturing audio: Permission denied.');
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+            console.error('Error capturing audio: Microphone is already in use.');
+        } else {
+            console.error('Error capturing audio:', err);
+        }
+        throw err; // Rethrow the error after logging
     }
 }
+
 ws.onerror = (error) => {
     console.log(error);
 };
