@@ -1,8 +1,6 @@
 import { createServer } from 'https';
 import { readFileSync } from 'fs';
 import { server as WebSocketServer } from 'websocket';
-const Opus = require('node-opus');
-const decoder = new Opus.Decoder(48000, 1); // 48kHz sampling rate, mono channel
 const ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
 var httpsOptions = {
