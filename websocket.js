@@ -57,7 +57,7 @@ wsServer.on('request', function (request) {
                 }
             });
         } else {
-            console.error('Stream ID missing in the message');
+            console.error('Stream ID missing in the message'); 
         }
   });
 
