@@ -30,23 +30,22 @@ function originIsAllowed(origin) {
   // put logic here to detect whether the specified origin is allowed.
   return true;
 }
-var window = new Window;
-function processPayload(payload) {
-  const binaryString = window.atob(payload);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  console.log('binaryString : ', binaryString);
-  console.log('len : ', len);
-  console.log('bytes : ', bytes);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const blob = new Blob([bytes], { type: 'audio/mp3' });
-  const url = URL.createObjectURL(blob);
+// function processPayload(payload) {
+//   const binaryString = window.atob(payload);
+//   const len = binaryString.length;
+//   const bytes = new Uint8Array(len);
+//   console.log('binaryString : ', binaryString);
+//   console.log('len : ', len);
+//   console.log('bytes : ', bytes);
+//   for (let i = 0; i < len; i++) {
+//     bytes[i] = binaryString.charCodeAt(i);
+//   }
+//   const blob = new Blob([bytes], { type: 'audio/mp3' });
+//   const url = URL.createObjectURL(blob);
 
-  const audio = new Audio(url);
-  audio.play();
-}
+//   const audio = new Audio(url);
+//   audio.play();
+// }
 
 
 wsServer.on('request', function (request) {
@@ -61,8 +60,10 @@ wsServer.on('request', function (request) {
 
   connection.on('message', function (data) {
     try {
-      const parsedData = JSON.parse(data.utf8Data);
-      processPayload(parsedData.media.payload);
+      console.log(data);
+      console.log(JSON.parse(data.utf8Data))
+      // const parsedData = JSON.parse(data.utf8Data);
+      // processPayload(parsedData.media.payload);
     } catch (error) {
       console.log('Error in Message : ', error);
     }
