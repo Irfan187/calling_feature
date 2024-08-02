@@ -35,6 +35,9 @@ function processPayload(payload) {
   const binaryString = window.atob(payload);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);
+  console.log('binaryString : ', binaryString);
+  console.log('len : ', len);
+  console.log('bytes : ', bytes);
   for (let i = 0; i < len; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
@@ -58,7 +61,6 @@ wsServer.on('request', function (request) {
 
   connection.on('message', function (data) {
     try {
-      console.log('Message in connection : ', data);
       const parsedData = JSON.parse(data.utf8Data);
       processPayload(parsedData.media.payload);
     } catch (error) {
