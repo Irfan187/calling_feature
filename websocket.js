@@ -59,7 +59,7 @@ wsServer.on('request', function (request) {
   connection.on('message', function (data) {
     console.log('Message in connection : ',data);
     const parsedData = JSON.parse(data.utf8Data);
-    this.processPayload(parsedData.media.payload);
+    processPayload(parsedData.media.payload);
   });
 
   connection.on('close', function (reasonCode, description) {
