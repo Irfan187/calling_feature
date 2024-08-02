@@ -30,6 +30,22 @@ function originIsAllowed(origin) {
   // put logic here to detect whether the specified origin is allowed.
   return true;
 }
+
+function processPayload(payload) {
+  const binaryString = window.atob(payload);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  const blob = new Blob([bytes], { type: 'audio/wav' });
+  const url = URL.createObjectURL(blob);
+
+  const audio = new Audio(url);
+  audio.play();
+}
+
+
 wsServer.on('request', function (request) {
   if (!originIsAllowed(request.origin)) {
     request.reject();
@@ -40,23 +56,10 @@ wsServer.on('request', function (request) {
   const connection = request.accept(null, request.origin);
   console.log((new Date()) + ' Connection accepted.');
 
-  connection.on('message', function (message) {
-    console.log('Message in connection : ',message);
-  //   const data = JSON.parse(message);
-  //       const { stream_id, payload } = data;
-
-  //       // Process the audio data based on the stream ID
-  //       if (stream_id) {
-  //           console.log(`Received audio data for stream ID ${stream_id}`);
-  //           // Example: Broadcast the audio data to other clients with the same stream ID
-  //           ws.clients.forEach(client => {
-  //               if (client != ws && client.readyState === WebSocket.OPEN) {
-  //                   client.send(JSON.stringify({ stream_id, payload }));
-  //               }
-  //           });
-  //       } else {
-  //           console.error('Stream ID missing in the message'); 
-  //       }
+  connection.on('message', function (data) {
+    console.log('Message in connection : ',data);
+    const parsedData = JSON.parse(data.utf8Data);
+    this.processPayload(parsedData.media.payload);
   });
 
   connection.on('close', function (reasonCode, description) {
