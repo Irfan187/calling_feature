@@ -30,21 +30,18 @@ function originIsAllowed(origin) {
   // put logic here to detect whether the specified origin is allowed.
   return true;
 }
-function processPayload(payload) {
-  const binaryString = window.atob(payload);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  console.log('binaryString : ', binaryString);
-  console.log('len : ', len);
-  console.log('bytes : ', bytes);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const blob = new Blob([bytes], { type: 'audio/mp3' });
-  const url = URL.createObjectURL(blob);
+function processPayload(payloadBase64, streamId, sequenceNumber) {
+  const decodedBuffer = Buffer.from(payloadBase64, 'base64');
 
-  const audio = new Audio(url);
-  audio.play();
+  // Save the decoded audio data to a file
+  const fileName = `audio_${streamId}_${sequenceNumber}.mp3`; // or .wav, depending on your data
+  fs.writeFile(fileName, decodedBuffer, (err) => {
+      if (err) {
+          console.error('Error saving audio file:', err);
+      } else {
+          console.log('Audio file saved as:', fileName);
+      }
+  });
 }
 
 
@@ -65,7 +62,7 @@ wsServer.on('request', function (request) {
       const parsedData = JSON.parse(data.utf8Data);
       var event = parsedData.event;
       if(event != 'start' && event != 'stop'){
-        processPayload(parsedData.media.payload);
+        processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
       }
       // 
     } catch (error) {
