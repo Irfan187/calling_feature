@@ -57,9 +57,14 @@ wsServer.on('request', function (request) {
   console.log((new Date()) + ' Connection accepted.');
 
   connection.on('message', function (data) {
-    console.log('Message in connection : ',data);
-    const parsedData = JSON.parse(data.utf8Data);
-    processPayload(parsedData.media.payload);
+    try {
+      console.log('Message in connection : ', data);
+      const parsedData = JSON.parse(data.utf8Data);
+      processPayload(parsedData.media.payload);
+    } catch (error) {
+      console.log('Error in Message : ', error);
+    }
+
   });
 
   connection.on('close', function (reasonCode, description) {
