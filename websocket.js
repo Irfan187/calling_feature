@@ -15,7 +15,6 @@ var httpsServer = createServer(httpsOptions, function (request, response) {
   response.end();
 });
 
-
 httpsServer.listen(3001, function () {
   console.log((new Date()) + " Server is listening on port 3001");
 });
