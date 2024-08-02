@@ -1,6 +1,7 @@
 import { createServer } from 'https';
 import { readFileSync } from 'fs';
 import { server as WebSocketServer } from 'websocket';
+import { fs } from 'fs';
 
 var httpsOptions = {
   key: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
