@@ -2,7 +2,6 @@ import { createServer } from 'https';
 import { readFileSync } from 'fs';
 import { server as WebSocketServer } from 'websocket';
 import fs from 'fs';
-import player from 'play-sound';
 
 var httpsOptions = {
   key: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
@@ -42,13 +41,13 @@ function processPayload(payloadBase64, streamId, sequenceNumber) {
       console.error('Error saving audio file:', err);
     } else {
       console.log('Audio file saved as:', fileName);
-      player.play(fileName, (err) => {
-        if (err) {
-          console.error(`Could not play sound: ${err}`);
-        } else {
-          console.log('Audio played successfully.');
-        }
-      });
+      // player.play(fileName, (err) => {
+      //   if (err) {
+      //     console.error(`Could not play sound: ${err}`);
+      //   } else {
+      //     console.log('Audio played successfully.');
+      //   }
+      // });
     }
   });
 }
