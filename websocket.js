@@ -79,7 +79,7 @@ wsServer.on('request', function (request) {
       var event = parsedData.event;
       if (event != 'start' && event != 'stop') {
         // processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
-        ws.send(JSON.stringify({ event: 'methodEmit', data: parsedData }));
+        connection.send(JSON.stringify({ event: 'methodEmit', data: parsedData }));
       }
       // 
     } catch (error) {
