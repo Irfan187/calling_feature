@@ -60,5 +60,4 @@ ws.onmessage = (event) => {
     }
 };
 
-ws.send('emitMethod');
 export { ws }
