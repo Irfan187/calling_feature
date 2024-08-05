@@ -23,7 +23,7 @@ ws.onerror = (error) => {
 };
 
 ws.onopen = (event) => {
-    console.log('WebSocket is open now.');
+    console.log('WebSocket is open now.',event);
 
     // startAudioCapture().then(stream => {
     //     const audioContext = new AudioContext();
