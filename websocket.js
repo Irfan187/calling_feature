@@ -37,11 +37,41 @@ function processPayload(payloadBase64, streamId, sequenceNumber) {
   // Save the decoded audio data to a file
   const fileName = `audio_${streamId}_${sequenceNumber}.mp3`; // or .wav, depending on your data
   fs.writeFile(fileName, decodedBuffer, (err) => {
-      if (err) {
-          console.error('Error saving audio file:', err);
-      } else {
-          console.log('Audio file saved as:', fileName);
-      }
+    if (err) {
+      console.error('Error saving audio file:', err);
+    } else {
+      console.log('Audio file saved as:', fileName);
+      var audioFile = new Audio(fileName);
+      audioFile.play();
+    }
+  });
+}
+
+function playAudioFile(file) {
+  // Path to the MP3 file
+
+  // Create a read stream for the MP3 file
+  const stream = fs.createReadStream(file);
+
+  // Create a decoder stream
+  const decoder = new lame.Decoder();
+
+  // Pipe the read stream through the decoder
+  stream.pipe(decoder);
+
+  // Pipe the decoded PCM data to the speaker
+  decoder.on('format', (format) => {
+    const speaker = new Speaker(format);
+    decoder.pipe(speaker);
+  });
+
+  // Handle errors
+  stream.on('error', (err) => {
+    console.error('Error reading the file:', err);
+  });
+
+  decoder.on('error', (err) => {
+    console.error('Error decoding the file:', err);
   });
 }
 
@@ -62,7 +92,7 @@ wsServer.on('request', function (request) {
       console.log(JSON.parse(data.utf8Data))
       const parsedData = JSON.parse(data.utf8Data);
       var event = parsedData.event;
-      if(event != 'start' && event != 'stop'){
+      if (event != 'start' && event != 'stop') {
         processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
       }
       // 
