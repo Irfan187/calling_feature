@@ -74,11 +74,11 @@ wsServer.on('request', function (request) {
   connection.on('message', function (data) {
     try {
       console.log(data);
-      console.log(JSON.parse(data.utf8Data))
       const parsedData = JSON.parse(data.utf8Data);
       var event = parsedData.event;
       if (event != 'start' && event != 'stop') {
         // processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
+        console.log('Here in condition');
         connection.send(JSON.stringify({ event: 'methodEmit', data: parsedData }));
       }
       // 
