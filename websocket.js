@@ -2,6 +2,7 @@ import { createServer } from 'https';
 import { readFileSync } from 'fs';
 import { server as WebSocketServer } from 'websocket';
 import fs from 'fs';
+import player from 'play-sound';
 
 var httpsOptions = {
   key: readFileSync("/etc/nginx/ssl/callingfeature.scrumad.com/2279529/server.key"),
@@ -41,39 +42,17 @@ function processPayload(payloadBase64, streamId, sequenceNumber) {
       console.error('Error saving audio file:', err);
     } else {
       console.log('Audio file saved as:', fileName);
-      var audioFile = new Audio(fileName);
-      audioFile.play();
+      player.play(fileName, (err) => {
+        if (err) {
+          console.error(`Could not play sound: ${err}`);
+        } else {
+          console.log('Audio played successfully.');
+        }
+      });
     }
   });
 }
 
-function playAudioFile(file) {
-  // Path to the MP3 file
-
-  // Create a read stream for the MP3 file
-  const stream = fs.createReadStream(file);
-
-  // Create a decoder stream
-  const decoder = new lame.Decoder();
-
-  // Pipe the read stream through the decoder
-  stream.pipe(decoder);
-
-  // Pipe the decoded PCM data to the speaker
-  decoder.on('format', (format) => {
-    const speaker = new Speaker(format);
-    decoder.pipe(speaker);
-  });
-
-  // Handle errors
-  stream.on('error', (err) => {
-    console.error('Error reading the file:', err);
-  });
-
-  decoder.on('error', (err) => {
-    console.error('Error decoding the file:', err);
-  });
-}
 
 
 wsServer.on('request', function (request) {
