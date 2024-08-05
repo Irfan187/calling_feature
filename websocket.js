@@ -31,23 +31,30 @@ function originIsAllowed(origin) {
   // put logic here to detect whether the specified origin is allowed.
   return true;
 }
+function chunkArray(array, chunkSize) {
+  var chunkedArray = [];
+  for (var i = 0; i < array.length; i += chunkSize)
+      chunkedArray.push(array.slice(i, i + chunkSize));
+  return chunkedArray;
+}
 function processPayload(payloadBase64, streamId, sequenceNumber) {
   const decodedBuffer = Buffer.from(payloadBase64, 'base64');
 
   // Save the decoded audio data to a file
-  const fileName = `audio_${streamId}_${sequenceNumber}.mp3`; // or .wav, depending on your data
+  const fileName = `audio_${streamId}_${sequenceNumber}.wav`; // or .wav, depending on your data
   fs.writeFile(fileName, decodedBuffer, (err) => {
     if (err) {
       console.error('Error saving audio file:', err);
     } else {
       console.log('Audio file saved as:', fileName);
-      // player.play(fileName, (err) => {
-      //   if (err) {
-      //     console.error(`Could not play sound: ${err}`);
-      //   } else {
-      //     console.log('Audio played successfully.');
-      //   }
-      // });
+      const wav = new WaveFile(fs.readFileSync(fileName));
+      wav.toSampleRate(16000);
+      wav.toBitDepth("16");
+
+      const samples = chunkArray(wav.getSamples()[0], 320);
+      for (var index = 0; index < samples.length; ++index) {
+        ws.send(Uint16Array.from(samples[index]).buffer);
+      }
     }
   });
 }
