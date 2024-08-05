@@ -78,7 +78,7 @@ wsServer.on('request', function (request) {
       const parsedData = JSON.parse(data.utf8Data);
       var event = parsedData.event;
       if (event != 'start' && event != 'stop') {
-        processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
+        // processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
       }
       // 
     } catch (error) {
