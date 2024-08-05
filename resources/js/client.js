@@ -49,12 +49,13 @@ ws.onclose = (event) => {
   console.log('disconnected',event);
 };
 
-ws.onmessage = (message) => {
-    if (message.event === 'error') {
-        console.error('Stream Error:', message.payload.detail);
-    } else {
-        console.log('Received message:', message);
-        // Handle incoming messages
+ws.onmessage = (event) => {
+    const data = event.data;
+    if (data.event === 'methodEmit') {
+        console.log('Method emitted from server:', data);
+        // Handle the method emission in your Vue.js application
+    }else{
+        console.log('other:');
     }
 };
 
