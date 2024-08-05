@@ -19,7 +19,7 @@ async function startAudioCapture() {
 }
 
 ws.onerror = (error) => {
-    console.log(error);
+    console.log(error,'hdgfdjfdhjdjgfjjfgfg');
 };
 
 ws.onopen = (event) => {
