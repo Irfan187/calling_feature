@@ -73,6 +73,7 @@ wsServer.on('request', function (request) {
 
   connection.on('message', function (data) {
     try {
+      const parsedData = JSON.parse(data.utf8Data);
       var event = parsedData.event;
       if (event != 'start' && event != 'stop') {
         // processPayload(parsedData.media.payload, parsedData.stream_id, parsedData.sequence_number);
