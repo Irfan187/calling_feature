@@ -50,8 +50,9 @@ ws.onclose = (event) => {
 };
 
 ws.onmessage = (event) => {
+    console.log('hgjdgfggfhgkjfgjkhgkjfhkgjfhkjghfkh',event)
     const data = event.data;
-    if (data.event === 'methodEmit') {
+    if (event.event === 'methodEmit') {
         console.log('Method emitted from server:', data);
         // Handle the method emission in your Vue.js application
     }else{
