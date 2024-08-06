@@ -13,7 +13,7 @@ ws.onclose = (event) => {
 };
 
 ws.onmessage = (event) => {
-    console.log(event);
+    console.log(JSON.parse(JSON.stringify(event.data)));
 };
 
 export { ws };
