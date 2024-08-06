@@ -1,30 +1,23 @@
-import { createRouter, createWebHistory } from 'vue-router';
-
+import { createRouter, createWebHistory } from "vue-router";
 
 const getCallingFeatureForm = () => import("@/components/CallingComponent.vue");
 
-
 const routes = [
-    // ---------------------------
-    // Home Route
-    // ---------------------------
     {
         name: "getCallingFeatureForm",
-        path: "/getCallingFeatureForm",
+        path: "/",
         component: getCallingFeatureForm,
         meta: {
-            title: `Login`,
+            title: `Calling Feature`,
             authRequired: false,
             isAuthLayout: true,
-        }
-    }
+        },
+    },
 ];
-
 
 const router = createRouter({
     history: createWebHistory(),
     routes,
 });
-
 
 export default router;
