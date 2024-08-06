@@ -57,11 +57,10 @@ wsServer.on("request", function (request) {
 
     /* Message handler */
     connection.on("message", function (data) {
-        const parsedData = JSON.parse(data);
         /* Forward all messages to client */
         clients.forEach((client) => {
             if (client !== connection && client.connected) {
-                client.send(parsedData);
+                client.send(data);
             }
         });
     });
