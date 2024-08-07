@@ -72,28 +72,38 @@ const initializeWebSocketAndAudio = () => {
         console.log('WebSocket disconnected', event);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
         try {
             const eventData = JSON.parse(event.data);
             // Record own voice and send it to websocket
 
             if (eventData.event === "start") {
-                mediaRecorder.start = function (event) {
-                    console.log({ 'event': event });
-                };
-                mediaRecorder.ondataavailable = function (e) {
-                    var object =
-                    {
-                        "event": "media",
-                        "media": {
-                            "payload": btoa(e.data)
-                        }
-                    };
-                    
-                    ws.send(JSON.stringify(object));
-                }
+                // mediaRecorder.start = function (event) {
+                //     console.log({ 'event': event });
+                // };
+                // mediaRecorder.ondataavailable = function (e) {
+                //     var object =
+                //     {
+                //         "event": "media",
+                //         "media": {
+                //             "payload": btoa(e.data)
+                //         }
+                //     };
+
+                //     ws.send(JSON.stringify(object));
+                // }
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
+
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 1;  // Adjust the gain value if needed
+
+                mediaStreamSource.connect(gainNode);
+                gainNode.connect(audioContext.destination);
             } else if (eventData.event === "stop") {
-                mediaRecorder.stop();
+                // mediaRecorder.stop();
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
