@@ -42,7 +42,7 @@ class TelnyxService
                 'connection_id' => '2472569862463948031',
                 'stream_url' => 'wss://callingfeature.scrumad.com:3001',
                 'stream_track' => 'inbound_track',
-                'preferred_codecs' => 'OPUS'
+                'preferred_codecs' => 'G722'
             ],
         ]);
 
