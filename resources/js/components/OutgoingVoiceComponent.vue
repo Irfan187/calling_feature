@@ -78,7 +78,7 @@ const initializeWebSocketAndAudio = () => {
             // Record own voice and send it to websocket
 
             if (eventData.event === "start") {
-                mediaRecorder.start() = function (event) {
+                mediaRecorder.start = function (event) {
                     console.log({ 'event': event });
                 };
                 mediaRecorder.ondataavailable = function (e) {
