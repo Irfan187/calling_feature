@@ -163,9 +163,8 @@ function writeString(view, offset, string) {
     }
 }
 
-const playAudio = (pcmuData) => {
-    const payload = pcmuData;
-    const pcmuData = decodeBase64ToPCMU(payload);
+const playAudio = (base64Data) => {
+    const pcmuData = decodeBase64ToPCMU(base64Data);
     const pcmData = convertPCMUToPCM(pcmuData);
     const wavBuffer = createWavBuffer(pcmData);
     const blob = new Blob([wavBuffer], { type: 'audio/wav' });
