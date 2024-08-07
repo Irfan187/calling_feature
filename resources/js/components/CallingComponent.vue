@@ -31,6 +31,8 @@ let ws = null;
 let audioContext = null;
 const sampleRate = 8000;
 
+const payloadArr = ref([]);
+
 const makeCall = async () => {
     const data = {
         to: to.value,
@@ -89,6 +91,7 @@ const handleStartEvent = (startData) => {
 
 const handleMediaEvent = (mediaData) => {
     const payload = mediaData.payload;
+    payloadArr.value.push(payload);
     const pcmuData = base64ToByteArray(payload);
     const pcmData = pcmuToPcm(pcmuData);
     playAudio(pcmData);
@@ -145,6 +148,7 @@ const playAudio = (pcmData) => {
 const handleStopEvent = (stopData) => {
     console.log('Call stopped with call_control_id:', stopData.call_control_id);
     callStatus.value = 'Call Stopped';
+    console.log(payloadArr.value);
 };
 </script>
 
