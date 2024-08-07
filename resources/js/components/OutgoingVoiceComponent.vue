@@ -38,6 +38,9 @@ navigator.mediaDevices
     .getUserMedia({ audio: true })
     .then(app);
 
+let mediaStream;
+let mediaStreamSource;
+let gainNode;
 const makeCall = async () => {
     const data = {
         to: to.value,
