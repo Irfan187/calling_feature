@@ -30,13 +30,6 @@ const callStatus = ref('No Active Call');
 let ws = null;
 let audioContext = null;
 const sampleRate = 8000;
-var mediaRecorder = null;
-const app = function (stream) {
-    mediaRecorder = new MediaRecorder(stream);
-};
-navigator.mediaDevices
-    .getUserMedia({ audio: true })
-    .then(app);
 
 let mediaStream;
 let mediaStreamSource;
@@ -96,6 +89,7 @@ const initializeWebSocketAndAudio = () => {
                 //     ws.send(JSON.stringify(object));
                 // }
                 mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                console.log(mediaStream);
 
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
@@ -107,6 +101,9 @@ const initializeWebSocketAndAudio = () => {
                 gainNode.connect(audioContext.destination);
             } else if (eventData.event === "stop") {
                 // mediaRecorder.stop();
+                mediaStreamSource.disconnect();
+                gainNode.disconnect();
+                mediaStream.getTracks().forEach(track => track.stop());
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
