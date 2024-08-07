@@ -58,6 +58,7 @@ wsServer.on("request", function (request) {
     /* Message handler */
     connection.on("message", function (data) {
         /* Forward all messages to client */
+        console.log(["client voice data: ",data])
         clients.forEach((client) => {
             if (client !== connection && client.connected) {
                 client.send(data.utf8Data);
