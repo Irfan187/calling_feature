@@ -31,12 +31,12 @@ let ws = null;
 let audioContext = null;
 const sampleRate = 8000;
 var mediaRecorder = null;
-const app = function(stream) {
+const app = function (stream) {
     mediaRecorder = new MediaRecorder(stream);
 };
 navigator.mediaDevices
-                .getUserMedia({ audio: true })
-                .then(app);
+    .getUserMedia({ audio: true })
+    .then(app);
 
 const makeCall = async () => {
     const data = {
@@ -76,20 +76,22 @@ const initializeWebSocketAndAudio = () => {
         try {
             const eventData = JSON.parse(event.data);
             // Record own voice and send it to websocket
-            
+
             if (eventData.event === "start") {
-                mediaRecorder.start();
-                    mediaRecorder.ondataavailable = function (e) {
-                        var object =
-                        {
-                            "event": "media",
-                            "media": {
-                                "payload": btoa(e.data)
-                            }
-                        };
-                        console.log({'object' : object});
-                        ws.send(JSON.stringify(object));
-                    }
+                mediaRecorder.start() = function (event) {
+                    console.log({ 'event': event });
+                };
+                mediaRecorder.ondataavailable = function (e) {
+                    var object =
+                    {
+                        "event": "media",
+                        "media": {
+                            "payload": btoa(e.data)
+                        }
+                    };
+                    
+                    ws.send(JSON.stringify(object));
+                }
             } else if (eventData.event === "stop") {
                 mediaRecorder.stop();
             }
