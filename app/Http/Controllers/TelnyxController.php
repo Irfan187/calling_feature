@@ -39,8 +39,8 @@ class TelnyxController extends Controller
 
     public function callback(Request $request)
     {
-        //$event = $request['data']['event_type'];
-        //logger('telnyx event', $event);
-        return response('', 200);
+        $event = $request['data']['event_type'];
+        logger('telnyx event', $event);
+        return response()->json();
     }
 }
