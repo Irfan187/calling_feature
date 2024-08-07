@@ -28,8 +28,10 @@ const from = ref('+16265401233');
 const callStatus = ref('No Active Call');
 
 let ws = null;
-let audioContext = null;
 const sampleRate = 8000;
+const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+let audioBufferQueue = [];
+let isPlaying = false;
 
 const makeCall = async () => {
     const data = {
@@ -89,7 +91,30 @@ const handleStartEvent = (startData) => {
 
 const handleMediaEvent = async (mediaData) => {
     const payload = mediaData.payload;
-    await playAudio(payload);
+    const pcmData = decodeBase64ToPCMU(payload);
+    const pcmBuffer = convertPCMUToPCM(pcmData);
+
+    audioBufferQueue.push(pcmBuffer);
+    if (!isPlaying) {
+        playQueuedAudio();
+    }
+};
+
+const playQueuedAudio = () => {
+    if (audioBufferQueue.length > 0) {
+        isPlaying = true;
+        const pcmBuffer = audioBufferQueue.shift();
+        const audioBuffer = audioContext.createBuffer(1, pcmBuffer.length, sampleRate);
+        audioBuffer.copyToChannel(pcmBuffer, 0);
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.onended = playQueuedAudio;
+        source.start();
+    } else {
+        isPlaying = false;
+    }
 };
 
 function decodeBase64ToPCMU(base64) {
@@ -123,27 +148,6 @@ function ulawDecode(ulawByte) {
 
     return (sign ? -mantissa : mantissa);
 }
-
-const playAudio = (pcmuData) => {
-    return new Promise((resolve) => {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)({
-            sampleRate: 8000 // Set the sample rate to 8000 Hz
-        });
-
-        const pcmData = decodeBase64ToPCMU(pcmuData);
-        const pcmBuffer = convertPCMUToPCM(pcmData);
-
-        const audioBuffer = audioContext.createBuffer(1, pcmBuffer.length, audioContext.sampleRate);
-        audioBuffer.copyToChannel(pcmBuffer, 0);
-
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        source.start();
-
-        source.onended = resolve;
-    });
-};
 
 const handleStopEvent = (stopData) => {
     console.log('Call stopped with call_control_id:', stopData.call_control_id);
