@@ -66,8 +66,6 @@ const initializeWebSocketAndAudio = () => {
 
     ws.onmessage = (event) => {
         const eventData = JSON.parse(event.data);
-        console.log(event);
-        console.log(eventData);
         if (eventData.event === "start") {
             handleStartEvent(eventData.start);
         } else if (eventData.event === "media") {
