@@ -102,9 +102,9 @@ function decodeBase64ToPCMU(base64) {
 }
 
 function convertPCMUToPCM(pcmuArray) {
-    const pcmArray = new Float32Array(pcmuArray.length);
+    const pcmArray = new Int16Array(pcmuArray.length);
     for (let i = 0; i < pcmuArray.length; i++) {
-        pcmArray[i] = ulawDecode(pcmuArray[i]) / 32768.0;
+        pcmArray[i] = ulawDecode(pcmuArray[i]);
     }
     return pcmArray;
 }
@@ -124,37 +124,54 @@ function ulawDecode(ulawByte) {
     return (sign ? -mantissa : mantissa);
 }
 
-const playAudio = (pcmuData) => {
-    return new Promise((resolve) => {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)({
-            sampleRate: 8000 // Set the sample rate to 8000 Hz
-        });
-        const pcmData = decodeBase64ToPCMU(pcmuData);
-        const pcmBuffer = convertPCMUToPCM(pcmData);
+function createWavBuffer(pcmBuffer) {
+    const bufferLength = pcmBuffer.length;
+    const wavBuffer = new ArrayBuffer(44 + bufferLength * 2);
+    const view = new DataView(wavBuffer);
 
-        const audioBuffer = audioContext.createBuffer(1, pcmBuffer.length, audioContext.sampleRate);
-        audioBuffer.copyToChannel(pcmBuffer, 0);
+    // RIFF chunk descriptor
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + bufferLength * 2, true);
+    writeString(view, 8, 'WAVE');
 
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
+    // FMT sub-chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // Audio format (1 = PCM)
+    view.setUint16(22, 1, true); // Number of channels
+    view.setUint32(24, sampleRate, true); // Sample rate
+    view.setUint32(28, sampleRate * 2, true); // Byte rate
+    view.setUint16(32, 2, true); // Block align
+    view.setUint16(34, 16, true); // Bits per sample
 
-        // Create a low-pass filter
-        const filter = audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 2000; // Adjust the frequency as needed
+    // Data sub-chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, bufferLength * 2, true);
 
-        // Create a gain node to control volume
-        const gainNode = audioContext.createGain();
-        gainNode.gain.value = 1; // Adjust the gain as needed
+    // PCM data
+    let offset = 44;
+    for (let i = 0; i < bufferLength; i++, offset += 2) {
+        view.setInt16(offset, pcmBuffer[i], true);
+    }
 
-        // Connect nodes: source -> filter -> gain -> destination
-        source.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+    return wavBuffer;
+}
 
-        source.start();
-        source.onended = resolve;
-    });
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+
+const playAudio = (base64Data) => {
+    const pcmuData = decodeBase64ToPCMU(base64Data);
+    const pcmData = convertPCMUToPCM(pcmuData);
+    const wavBuffer = createWavBuffer(pcmData);
+    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+
+    const audio = new Audio(url);
+    audio.play();
 };
 
 const handleStopEvent = (stopData) => {
