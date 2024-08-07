@@ -29,6 +29,8 @@ const callStatus = ref('No Active Call');
 
 let ws = null;
 const sampleRate = 8000;
+const frameDuration = 0.16; // 160ms
+const frameSize = Math.floor(sampleRate * frameDuration); // 8000 * 0.16 = 1280 samples per frame
 const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
 let audioBufferQueue = [];
 let isPlaying = false;
@@ -111,7 +113,7 @@ const playQueuedAudio = () => {
         source.buffer = audioBuffer;
         source.connect(audioContext.destination);
         source.onended = playQueuedAudio;
-        source.start();
+        source.start(audioContext.currentTime + frameDuration);
     } else {
         isPlaying = false;
     }
