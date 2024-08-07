@@ -41,9 +41,7 @@ class TelnyxService
                 'from' => $from,
                 'connection_id' => '2472569862463948031',
                 'stream_url' => 'wss://callingfeature.scrumad.com:3001',
-                'direction' => 'both',
-                'media_format' => 'audio/opus',
-                'stream_track' => 'both_tracks',
+                'stream_track' => 'inbound_track',
                 'preferred_codecs' => 'PCMU'
             ],
         ]);
