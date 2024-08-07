@@ -41,6 +41,6 @@ class TelnyxController extends Controller
     {
         $event = $request['data']['event_type'];
         logger('telnyx event', $event);
-        return response()->json();
+        return true;
     }
 }
