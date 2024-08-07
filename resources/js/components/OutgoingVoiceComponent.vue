@@ -87,6 +87,7 @@ const initializeWebSocketAndAudio = () => {
                                 "payload": btoa(e.data)
                             }
                         };
+                        console.log(object)
                         ws.send(object);
                     }
             } else if (eventData.event === "stop") {
