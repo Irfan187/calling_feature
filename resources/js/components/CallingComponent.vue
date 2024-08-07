@@ -85,15 +85,15 @@ const initializeWebSocketAndAudio = () => {
 const handleStartEvent = (startData) => {
     console.log('Call started with call_control_id:', startData.call_control_id);
     callStatus.value = 'Call Started';
-    sampleRate = startData.media_format.sample_rate;
+    sampleRate = startData.media_format.sample_rate; // Update sample rate from media format
 };
 
-const handleMediaEvent = (mediaData) => {
+const handleMediaEvent = async (mediaData) => {
     const payload = mediaData.payload;
     const pcmuData = base64ToByteArray(payload);
     const pcmData = pcmuToPcm(pcmuData);
     const filteredData = applyNoiseSuppression(pcmData);
-    playAudio(filteredData);
+    await playAudio(filteredData);
 };
 
 const base64ToByteArray = (base64) => {
@@ -123,7 +123,7 @@ const muLawDecode = (muLawByte) => {
         sample = -sample;
     }
 
-    return sample / 32768;
+    return sample / 32768; // Normalize the value to the range [-1, 1]
 };
 
 const pcmuToPcm = (pcmuData) => {
@@ -139,22 +139,30 @@ const applyNoiseSuppression = (pcmData) => {
     return pcmData.map((sample) => (Math.abs(sample) < noiseThreshold ? 0 : sample));
 };
 
-const applyLowPassFilter = (audioBuffer) => {
+function applyLowPassFilter(audioBuffer) {
     const filter = audioContext.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.value = 2000;
-    filter.Q.value = 1;
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(filter);
     filter.connect(audioContext.destination);
     source.start(0);
-};
+}
 
 const playAudio = (pcmData) => {
-    const audioBuffer = audioContext.createBuffer(1, pcmData.length, sampleRate);
-    audioBuffer.getChannelData(0).set(pcmData);
-    applyLowPassFilter(audioBuffer);
+    return new Promise((resolve) => {
+        const audioBuffer = audioContext.createBuffer(1, pcmData.length, sampleRate);
+        audioBuffer.getChannelData(0).set(pcmData);
+        applyLowPassFilter(audioBuffer);
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+
+        source.onended = resolve; // Resolve the promise when playback finishes
+        source.connect(audioContext.destination);
+        source.start(0);
+    });
 };
 
 const handleStopEvent = (stopData) => {
