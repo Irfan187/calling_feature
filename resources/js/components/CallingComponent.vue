@@ -101,7 +101,7 @@ function decodeBase64ToPCMU(base64) {
     return pcmuArray;
 }
 
-function convertPCMUToPCM(pcmuArray, sampleRate) {
+function convertPCMUToPCM(pcmuArray) {
     const pcmArray = new Float32Array(pcmuArray.length);
     for (let i = 0; i < pcmuArray.length; i++) {
         pcmArray[i] = ulawDecode(pcmuArray[i]) / 32768.0;
@@ -109,25 +109,24 @@ function convertPCMUToPCM(pcmuArray, sampleRate) {
     return pcmArray;
 }
 
-function ulawDecode(value) {
-    const EXP_BIAS = 0x84;
-    value = ~value;
-    const sign = (value & 0x80) >> 7;
-    const exponent = (value & 0x70) >> 4;
-    let mantissa = value & 0x0F;
+function ulawDecode(ulawByte) {
+    ulawByte = ~ulawByte;
+    const sign = (ulawByte & 0x80) ? -1 : 1;
+    const exponent = (ulawByte & 0x70) >> 4;
+    let mantissa = ulawByte & 0x0F;
     mantissa |= 0x10;
-    mantissa <<= 3;
-    mantissa += 0x04;
-    mantissa <<= exponent;
-
-    return (sign === 0 ? mantissa : -mantissa) * 8;
+    const sample = sign * (mantissa << (exponent + 3));
+    return sample;
 }
 
 const playAudio = (pcmuData) => {
     return new Promise((resolve) => {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+            sampleRate: 8000 // Set the sample rate to 8000 Hz
+        });
+
         const pcmData = decodeBase64ToPCMU(pcmuData);
-        const pcmBuffer = convertPCMUToPCM(pcmData, audioContext.sampleRate);
+        const pcmBuffer = convertPCMUToPCM(pcmData);
 
         const audioBuffer = audioContext.createBuffer(1, pcmBuffer.length, audioContext.sampleRate);
         audioBuffer.copyToChannel(pcmBuffer, 0);
