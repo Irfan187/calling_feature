@@ -135,33 +135,32 @@ const pcmuToPcm = (pcmuData) => {
 };
 
 const applyNoiseSuppression = (pcmData) => {
-    const noiseThreshold = 0.1;
+    const noiseThreshold = 0.08;
     return pcmData.map((sample) => (Math.abs(sample) < noiseThreshold ? 0 : sample));
 };
 
-function applyLowPassFilter(audioBuffer) {
+const applyLowPassFilter = (audioBuffer) => {
     const filter = audioContext.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 2000;
+    filter.frequency.value = 2000; // Adjust frequency to suppress noise better
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(filter);
     filter.connect(audioContext.destination);
     source.start(0);
-}
+};
 
 const playAudio = (pcmData) => {
     return new Promise((resolve) => {
         const audioBuffer = audioContext.createBuffer(1, pcmData.length, sampleRate);
         audioBuffer.getChannelData(0).set(pcmData);
-        applyLowPassFilter(audioBuffer);
 
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
 
         source.onended = resolve; // Resolve the promise when playback finishes
         source.connect(audioContext.destination);
-        source.start(0);
+        applyLowPassFilter(audioBuffer); // Apply the low-pass filter
     });
 };
 
