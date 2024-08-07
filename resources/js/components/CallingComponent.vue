@@ -11,6 +11,10 @@
         </div>
 
         <button type="button" class="btn btn-primary" @click="makeCall">Make Call</button>
+
+        <div class="my-3">
+            <div id="callStatus">No Active Call</div>
+        </div>
     </div>
 </template>
 
