@@ -68,33 +68,6 @@ const initializeWebSocketAndAudio = () => {
     ws.onmessage = (event) => {
         try {
             const eventData = JSON.parse(event.data);
-            // Record own voice and send it to websocket
-            
-
-            const app = function (stream) {
-                let mediaRecorder = new MediaRecorder(stream);
-                let chunks = [];
-
-                if (eventData.event == 'start') {
-                    mediaRecorder.start();
-                    mediaRecorder.ondataavailable = function (e) {
-                        var object =
-                        {
-                            "event": "media",
-                            "media": {
-                                "payload": btoa(e.data)
-                            }
-                        };
-                        ws.send(object);
-                    }
-                }
-                if (eventData.event == 'stop') {
-                    mediaRecorder.stop();
-                }
-            };
-            navigator.mediaDevices
-                .getUserMedia({ audio: true })
-                .then(app);
             if (eventData.event === "start") {
                 handleStartEvent(eventData.start);
             } else if (eventData.event === "media") {
