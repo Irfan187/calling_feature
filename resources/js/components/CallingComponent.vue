@@ -137,9 +137,22 @@ const playAudio = (pcmuData) => {
 
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        source.start();
 
+        // Create a low-pass filter
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 2000; // Adjust the frequency as needed
+
+        // Create a gain node to control volume
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 1; // Adjust the gain as needed
+
+        // Connect nodes: source -> filter -> gain -> destination
+        source.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        source.start();
         source.onended = resolve;
     });
 };
