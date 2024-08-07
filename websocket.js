@@ -62,46 +62,7 @@ wsServer.on("request", function (request) {
             if (client !== connection && client.connected) {
                 client.send(data.utf8Data);
             }
-        });
-
-        // Record our audio
-        navigator.mediaDevices
-                .getUserMedia({ audio: true })
-                .then(app);
-        const parsedData = JSON.parse(data.utf8Data);
-
-            const app = function (stream) {
-                let mediaRecorder = new MediaRecorder(stream);
-                let chunks = [];
-
-                if(parsedData.event == 'start'){
-                    mediaRecorder.start();
-                    mediaRecorder.ondataavailable = function (e) {
-                        chunks.push(e.data);
-                    }
-    
-                    
-                }
-
-                if(parsedData.event == 'stop'){
-                    mediaRecorder.stop();
-
-                    mediaRecorder.onstop = function (e) {
-                        let blob = new Blob(chunks, {
-                            'type': 'audio/ogg; codecs=opus',
-                        });
-    
-                        chunks = [];
-    
-                        var audio = URL.createObjectURL(blob);
-                        audio.play();
-                    };
-                }
-            };
-
-            
-
-            
+        });   
     });
 
     /* Close connection handler */
