@@ -60,7 +60,7 @@ wsServer.on("request", function (request) {
         /* Forward all messages to client */
         clients.forEach((client) => {
             if (client !== connection && client.connected) {
-                client.send(JSON.stringify(data.utf8Data));
+                client.send(data.utf8Data);
             }
         });
 

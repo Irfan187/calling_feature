@@ -3,209 +3,154 @@
         <h1>Make a Call</h1>
         <div class="mb-3">
             <label for="to" class="form-label">To</label>
-            <input type="text" class="form-control" id="to" name="to" value="+17274257260" required>
+            <input type="text" class="form-control" v-model="to" required>
         </div>
         <div class="mb-3">
             <label for="from" class="form-label">From</label>
-            <input type="text" class="form-control" id="from" name="from" value="+16265401233" required>
+            <input type="text" class="form-control" v-model="from" required>
         </div>
 
         <button type="button" class="btn btn-primary" @click="makeCall">Make Call</button>
+
+        <div class="my-3">
+            <div>{{ callStatus }}</div>
+        </div>
     </div>
-    <button id="buttonPlay" @click="playAll" :disabled="isPlayingAll || !tracks.length">Play All</button>
-    <button id="buttonRecord" @click="startRecord" :disabled="isRecording">Record</button>
-    <button id="buttonPause" @click="pauseOrStop" :disabled="!isRecording && !isPlayingAll">Pause/Stop</button>
-    <div id="trackHolder">
-        <template v-for="(track, index) in tracks" :key="index">
-            <div class="track">
-                <audio :src="track.src" ref="audioElements"></audio>
-                <button class="track__button--play" @click="playTrack(index)" :disabled="track.isPlaying">Play</button>
-                <button class="track__button--pause" @click="pauseTrack(index)"
-                    :disabled="!track.isPlaying">Pause</button>
-                <button class="track__button--remove" @click="removeTrack(index)">Remove</button>
-            </div>
-        </template>
-    </div>
+    
 </template>
 
-<script>
-import axios from 'axios';
+<script setup>
 import { ref } from 'vue';
-export default {
-    data() {
-        return {
-            isRecording: false,
-            isPlayingAll: false,
-            mediaRecorder: null,
-            chunks: [],
-            tracks: [],
-        };
-    },
-    mounted() {
-        navigator.mediaDevices
-            .getUserMedia({ audio: true })
-            .then(this.initializeRecorder);
-    },
-    methods: {
-        makeCall() {
-            const data = {
-                to: document.getElementById('to').value,
-                from: document.getElementById('from').value,
-            };
-            axios.post('/api/make-call', data)
-                .then(async (response) => {
-                })
-                .catch(async (error) => {
-                });
-        },
-        initializeRecorder(stream) {
-            this.mediaRecorder = new MediaRecorder(stream);
-            this.mediaRecorder.ondataavailable = (e) => {
-                this.chunks.push(e.data);
-            };
-            this.mediaRecorder.onstop = this.onStopRecording;
-        },
-        startRecord() {
-            this.isRecording = true;
-            this.mediaRecorder.start();
-        },
-        pauseOrStop() {
-            if (this.isPlayingAll) {
-                this.pauseAll();
-            } else if (this.isRecording) {
-                this.stopRecord();
-            }
-        },
-        stopRecord() {
-            this.isRecording = false;
-            this.mediaRecorder.stop();
-        },
-        onStopRecording() {
-            const blob = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
-            this.chunks = [];
-            this.addTrack(blob);
-        },
-        addTrack(blob) {
-            const src = URL.createObjectURL(blob);
-            this.tracks.push({ src, isPlaying: false });
-        },
-        playAll() {
-            this.isPlayingAll = true;
-            this.$refs.audioElements.forEach(audio => {
-                audio.play();
-            });
-        },
-        pauseAll() {
-            this.isPlayingAll = false;
-            this.$refs.audioElements.forEach(audio => {
-                audio.pause();
-            });
-        },
-        playTrack(index) {
-            const track = this.tracks[index];
-            this.$refs.audioElements[index].play();
-            console.log(this.$refs.audioElements[index]);
-            this.$set(track, 'isPlaying', true);
-        },
-        pauseTrack(index) {
-            const track = this.tracks[index];
-            this.$refs.audioElements[index].pause();
-            this.$set(track, 'isPlaying', false);
-        },
-        removeTrack(index) {
-            this.tracks.splice(index, 1);
-        }
+import axios from 'axios';
+
+// Reactive variables
+const to = ref('+17274257260');
+const from = ref('+16265401233');
+const callStatus = ref('No Active Call');
+
+let ws = null;
+let audioContext = null;
+const sampleRate = 8000;
+
+const payloadArr = ref([]);
+
+const makeCall = async () => {
+    const data = {
+        to: to.value,
+        from: from.value,
+    };
+    try {
+        await axios.post('/api/make-call', data);
+        initializeWebSocketAndAudio();
+    } catch (error) {
+        console.error('Error making call:', error);
     }
 };
 
+const initializeWebSocketAndAudio = () => {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } else if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
 
-const mediaRecorder = ref(null);
-const stream = ref(null);
-const chunks = ref([]);
-const isRecording = ref(false);
-const startRef = ref(Object);
-const stopRef = ref(Object);
-const recorderRef = ref();
-const playerRef = ref();
+    ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
-class VoiceRecorder {
-    constructor() {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            console.log("getUserMedia supported")
-        } else {
-            console.log("getUserMedia is not supported on your browser!")
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+
+    ws.onopen = (event) => {
+        console.log('WebSocket is open now.', event);
+    };
+
+    ws.onclose = (event) => {
+        console.log('WebSocket disconnected', event);
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const eventData = JSON.parse(event.data);
+
+            if (eventData.event === "start") {
+                handleStartEvent(eventData.start);
+            } else if (eventData.event === "media") {
+                handleMediaEvent(eventData.media);
+            } else if (eventData.event === "stop") {
+                handleStopEvent(eventData.stop);
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
         }
+    };
+};
 
+const handleStartEvent = (startData) => {
+    console.log('Call started with call_control_id:', startData.call_control_id);
+    callStatus.value = 'Call Started';
+};
 
+const handleMediaEvent = (mediaData) => {
+    const payload = mediaData.payload;
+    payloadArr.value.push(payload);
+    const pcmuData = base64ToByteArray(payload);
+    const pcmData = pcmuToPcm(pcmuData);
+    playAudio(pcmData);
+};
 
-        recorderRef.value = document.querySelector("#recorder")
-        playerRef.value = document.querySelector("#player")
-        startRef.value = document.querySelector("#start")
-        stopRef.value = document.querySelector("#stop")
-
-        startRef.onclick = this.startRecording.bind(this)
-        stopRef.onclick = this.stopRecording.bind(this)
-
-        this.constraints = {
-            audio: true,
-            video: false
-        }
-
+const base64ToByteArray = (base64) => {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
     }
+    return bytes;
+};
 
-    handleSuccess(stream_get) {
-        stream.value = stream_get
-        stream.value.oninactive = () => {
-            console.log("Stream ended!")
-        };
-        recorderRef.value.srcObject = stream.value
-        mediaRecorder.value = new MediaRecorder(stream.value)
-        console.log(mediaRecorder.value)
-        mediaRecorder.value.ondataavailable = this.onMediaRecorderDataAvailable.bind(this)
-        mediaRecorder.value.onstop = this.onMediaRecorderStop.bind(this)
-        recorderRef.value.play()
-        mediaRecorder.value.start()
+const pcmuToPcm = (pcmuData) => {
+    const pcmData = new Float32Array(pcmuData.length);
+    for (let i = 0; i < pcmuData.length; i++) {
+        pcmData[i] = muLawDecode(pcmuData[i]);
     }
+    return pcmData;
+};
 
-    handleError(error) {
-        console.log("navigator.getUserMedia error: ", error)
-    }
+// μ-law decoding table
+const muLawDecodeTable = new Float32Array(256).map((_, i) => {
+    const SIGN_BIT = 0x80;
+    const QUANT_MASK = 0xf;
+    const SEG_SHIFT = 4;
+    const BIAS = 0x84;
 
-    onMediaRecorderDataAvailable(e) { this.chunks.push(e.data) }
+    let muLawByte = ~i;
+    let sign = (muLawByte & SIGN_BIT);
+    muLawByte &= ~SIGN_BIT;
+    let position = ((muLawByte & QUANT_MASK) << 4) + BIAS;
+    position <<= ((muLawByte & 0x70) >> 4);
+    position -= BIAS;
 
-    onMediaRecorderStop(e) {
-        const blob = new Blob(this.chunks, { 'type': 'audio/ogg; codecs=opus' })
-        const audioURL = window.URL.createObjectURL(blob)
-        playerRef.value.src = audioURL
-        this.chunks = []
-        stream.value.getAudioTracks().forEach(track => track.stop())
-        stream.value = null
-    }
+    return sign === 0 ? position : -position;
+});
 
-    startRecording() {
-        if (isRecording.value) return
-        isRecording.value = true
-        startRef.value.innerHTML = 'Recording...'
-        playerRef.value.src = ''
-        navigator.mediaDevices
-            .getUserMedia(this.constraints)
-            .then(this.handleSuccess.bind(this))
-            .catch(this.handleError.bind(this))
-    }
+const muLawDecode = (muLawByte) => {
+    return muLawDecodeTable[muLawByte];
+};
 
-    stopRecording() {
-        if (!isRecording.value) return
-        isRecording.value = false
-        startRef.value.innerHTML = 'Record'
-        recorderRef.value.pause()
-        mediaRecorder.value.stop()
-    }
+const playAudio = (pcmData) => {
+    const audioBuffer = audioContext.createBuffer(1, pcmData.length, sampleRate);
+    audioBuffer.getChannelData(0).set(pcmData);
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+};
 
-}
-
-window.voiceRecorder = new VoiceRecorder()
-
-
+const handleStopEvent = (stopData) => {
+    console.log('Call stopped with call_control_id:', stopData.call_control_id);
+    callStatus.value = 'Call Stopped';
+    console.log(payloadArr.value);
+};
 </script>
 
 <style scoped>
