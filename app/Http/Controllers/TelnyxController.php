@@ -40,31 +40,7 @@ class TelnyxController extends Controller
     public function callback(Request $request)
     {
         $event = $request['data']['event_type'];
-        logger($event);
-        logger($request->all());
-        if ($event === 'call.initiated') {
-            $callControlId = $request['data']['payload']['call_control_id'];
-            
-
-            try {
-                // $response = $this->client->post('calls/'.$callControlId.'/actions/stream_start', [
-                //     'json' => [
-                //         'stream_url' => 'https://websocket.ngrok-free.dev',
-                //         'media_format' => 'audio/opus',
-                //         'direction' => 'both',
-                //     ],
-                // ]);
-
-                // logger(json_decode($response->getBody(), true));
-                
-
-                logger('Stream started');
-            } catch (Exception $e) {
-                logger(['Error starting stream:', $e->getMessage()]);
-            }
-        }else{
-            logger($request['data']['event_type']);
-        }
-
+        logger('telnyx event', $event);
+        return response('', 200);
     }
 }
