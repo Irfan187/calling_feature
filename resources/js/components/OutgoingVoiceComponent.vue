@@ -88,7 +88,7 @@ const initializeWebSocketAndAudio = () => {
                             }
                         };
                         console.log({'object' : object});
-                        ws.send(object);
+                        ws.send(JSON.stringify(object));
                     }
             } else if (eventData.event === "stop") {
                 mediaRecorder.stop();
