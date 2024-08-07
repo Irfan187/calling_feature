@@ -110,13 +110,18 @@ function convertPCMUToPCM(pcmuArray) {
 }
 
 function ulawDecode(ulawByte) {
+    const BIAS = 0x84;
     ulawByte = ~ulawByte;
-    const sign = (ulawByte & 0x80) ? -1 : 1;
-    const exponent = (ulawByte & 0x70) >> 4;
+    const sign = ulawByte & 0x80;
+    let exponent = (ulawByte & 0x70) >> 4;
     let mantissa = ulawByte & 0x0F;
     mantissa |= 0x10;
-    const sample = sign * (mantissa << (exponent + 3));
-    return sample;
+    mantissa <<= 1;
+    mantissa += 1;
+    mantissa <<= exponent + 2;
+    mantissa -= BIAS;
+
+    return (sign ? -mantissa : mantissa);
 }
 
 const playAudio = (pcmuData) => {
