@@ -147,11 +147,13 @@ const startRecording = () => {
             mediaRecorder.start();
 
             mediaRecorder.addEventListener('dataavailable', event => {
+                console.log('dataavailable', event.data);
                 audioChunks.push(event.data);
             });
 
             mediaRecorder.addEventListener('stop', () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                console.log('stop', audioBlob);
                 audioChunks = [];
                 processAndSendAudio(audioBlob);
             });
@@ -166,13 +168,14 @@ const startRecording = () => {
 }
 
 const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
+    if (mediaRecorder) {
         mediaRecorder.stop();
     }
     clearInterval(recordingInterval);
 }
 
 const processAndSendAudio = async (blob) => {
+    console.log(blob);
     const arrayBuffer = await blob.arrayBuffer();
     const mp3Data = await encodeToMP3(arrayBuffer);
     console.log(mp3Data);
