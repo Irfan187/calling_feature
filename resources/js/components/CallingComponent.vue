@@ -22,19 +22,17 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios';
+import * as lame from '@breezystack/lamejs';
 
 const to = ref('+17274257260');
 const from = ref('+16265401233');
 const callStatus = ref('No Active Call');
 
-let recorder;
+let mediaRecorder;
 let audioChunks = [];
-let recordingInterval;
-let isRecording = false;
-let base64Array = [];
 let ws = null;
 let audioContext = null;
-const audioContextOutgoing = new (window.AudioContext || window.webkitAudioContext)();
+let recordingInterval;
 
 const makeCall = async () => {
     const data = {
@@ -89,22 +87,7 @@ const initializeWebSocketAndAudio = () => {
 const handleStartEvent = async (startData) => {
     console.log('Call started with call_control_id:', startData.call_control_id);
     callStatus.value = 'Call Started';
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const input = audioContextOutgoing.createMediaStreamSource(stream);
-    recorder = new MediaRecorder(stream);
-
-    recorder.ondataavailable = event => {
-        audioChunks.push(event.data);
-    };
-
-    recordingInterval = setInterval(() => {
-        if (isRecording) {
-            stopRecording();
-        } else {
-            recorder.start();
-            isRecording = true;
-        }
-    }, 1000);
+    startRecording();
 };
 
 const handleMediaEvent = async (mediaData) => {
@@ -153,36 +136,84 @@ const playAudio = async (base64Data) => {
 const handleStopEvent = (stopData) => {
     console.log('Call stopped with call_control_id:', stopData.call_control_id);
     callStatus.value = 'Call Stopped';
-    clearInterval(recordingInterval);
-    if (recorder && recorder.state !== 'inactive') {
-        recorder.stop();
-    }
+    stopRecording();
+    ws.close();
 };
 
-function stopRecording() {
-    recorder.stop();
-    isRecording = false;
+const startRecording = () => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
 
-    recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const audioBuffer = await audioContextOutgoing.decodeAudioData(arrayBuffer);
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-            const base64data = reader.result.split(',')[1];
-            var payload = {
-                "event": "media",
-                "media": {
-                    "payload": base64data
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener('stop', () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioChunks = [];
+                processAndSendAudio(audioBlob);
+            });
+
+            recordingInterval = setInterval(() => {
+                if (mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    mediaRecorder.start();
                 }
-            };
-            ws.send(JSON.stringify(payload));
-        };
-        audioChunks = []; // Clear the chunks after processing
-    };
+            }, 1000);
+        });
 }
 
+const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    clearInterval(recordingInterval);
+}
+
+const processAndSendAudio = async (blob) => {
+    const arrayBuffer = await blob.arrayBuffer();
+    const mp3Data = await encodeToMP3(arrayBuffer);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        let payload = {
+            "event": "media",
+            "media": {
+                "payload": mp3Data
+            }
+        };
+        ws.send(JSON.stringify(payload));
+    }
+}
+
+const encodeToMP3 = (buffer) => {
+    return new Promise((resolve, reject) => {
+        const wav = lame.WavHeader.readHeader(new DataView(buffer));
+        const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
+        const mp3Encoder = new lame.Mp3Encoder(wav.channels, wav.sampleRate, 128);
+        const mp3Data = [];
+        let mp3Buffer;
+
+        mp3Buffer = mp3Encoder.encodeBuffer(samples);
+        if (mp3Buffer.length > 0) {
+            mp3Data.push(mp3Buffer);
+        }
+
+        mp3Buffer = mp3Encoder.flush();
+        if (mp3Buffer.length > 0) {
+            mp3Data.push(mp3Buffer);
+        }
+
+        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64data = reader.result.split(',')[1];
+            resolve(base64data);
+        };
+        reader.readAsDataURL(blob);
+    });
+}
 
 </script>
 
