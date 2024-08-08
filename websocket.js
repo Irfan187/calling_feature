@@ -1,6 +1,13 @@
 import { createServer } from "https";
 import { readFileSync } from "fs";
 import { server as WebSocketServer } from "websocket";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import ffmpeg from "fluent-ffmpeg";
+
+import { AudioBuffer } from "./audioBuffer.js";
+import { pcmuToMp3Base64 } from "./audioConversion.js";
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 // Server SSL config
 let httpsOptions = {
@@ -28,49 +35,41 @@ let wsServer = new WebSocketServer({
     autoAcceptConnections: false,
 });
 
-// Function to check connection origin and blacklist as required
-function originIsAllowed(origin) {
-    return true;
-}
-
-// Clients array
-let clients = [];
-
 // WS request handler
 wsServer.on("request", function (request) {
-    /* Close connection if origin in blaclist */
-    if (!originIsAllowed(request.origin)) {
-        request.reject();
-        console.log(
-            new Date() +
-            " Connection from origin " +
-            request.origin +
-            " rejected."
-        );
-        return;
-    }
-
-    /* Accept otherwise */
     const connection = request.accept(null, request.origin);
-    clients.push(connection);
-    console.log(new Date() + " Connection accepted.");
+
+    const audioBuffer = new AudioBuffer(async (combinedChunks) => {
+        pcmuToMp3Base64(combinedChunks, (mp3Base64, error) => {
+            if (error) {
+                console.error("Failed to convert audio:", error);
+                return;
+            }
+            connection.send({
+                event: "media",
+                media: {
+                    payload: mp3Base64,
+                },
+            });
+        });
+    });
 
     /* Message handler */
     connection.on("message", function (data) {
         /* Forward all messages to client */
-        console.log(["client voice data: ",data])
-        clients.forEach((client) => {
-            if (client !== connection && client.connected) {
-                client.send(data.utf8Data);
-            }
-        });   
+        let eventData = data.utf8Data;
+        if (eventData.event == "media") {
+            const chunk = Buffer.from(eventData.payload, "base64");
+            const sequenceNumber = data.sequence_number;
+            audioBuffer.add(chunk, sequenceNumber);
+        } else if (eventData.event == "stop") {
+            audioBuffer.flush();
+            connection.send(eventData);
+        } else {
+            connection.send(eventData);
+        }
     });
 
     /* Close connection handler */
-    connection.on("close", function (reasonCode, description) {
-        console.log(
-            new Date() + " Peer " + connection.remoteAddress + " disconnected."
-        );
-        clients = clients.filter((client) => client !== connection);
-    });
+    connection.on("close", function (reasonCode, description) {});
 });
