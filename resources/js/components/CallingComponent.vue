@@ -145,7 +145,7 @@ const handleStopEvent = (stopData) => {
 const startRecording = async () => {
     await register(await connect());
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav', audioChannels: 1 });
 
     mediaRecorder.addEventListener('dataavailable', event => {
         audioChunks.push(event.data);
@@ -173,10 +173,8 @@ const stopRecording = () => {
 }
 
 const processAndSendAudio = async (blob) => {
-    console.log('blob', blob);
     const arrayBuffer = await blob.arrayBuffer();
     const mp3Data = await encodeToMP3(arrayBuffer);
-    console.log('mp3Data', mp3Data);
     if (ws && ws.readyState === WebSocket.OPEN) {
         let payload = {
             "event": "media",
@@ -191,13 +189,24 @@ const processAndSendAudio = async (blob) => {
 const encodeToMP3 = (buffer) => {
     return new Promise((resolve, reject) => {
         const wav = lame.WavHeader.readHeader(new DataView(buffer));
-        console.log('wav headers', wav);
         const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
         const mp3Encoder = new lame.Mp3Encoder(wav.channels, wav.sampleRate, 128);
         const mp3Data = [];
         let mp3Buffer;
 
-        mp3Buffer = mp3Encoder.encodeBuffer(samples);
+        if (wav.channels == 2) {
+            const leftChannel = [];
+            const rightChannel = [];
+            for (let i = 0; i < samples.length; i += 2) {
+                leftChannel.push(samples[i]);
+                rightChannel.push(samples[i + 1]);
+            }
+
+            mp3Buffer = mp3Encoder.encodeBuffer(leftChannel, rightChannel);
+        } else {
+            mp3Buffer = mp3Encoder.encodeBuffer(samples);
+        }
+
         if (mp3Buffer.length > 0) {
             mp3Data.push(mp3Buffer);
         }
