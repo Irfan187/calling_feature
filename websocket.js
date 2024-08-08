@@ -68,7 +68,7 @@ wsServer.on("request", function (request) {
     /* Message handler */
     connection.on("message", function (data) {
         if (connection == userClient) {
-            console.log('client data',JSON.parse(data.utf8Data));
+            console.log('client data',data.event);
         } else if (connection == telnyxClient) {
             /* Forward all messages to client */
             let eventData = JSON.parse(data.utf8Data);
