@@ -35,9 +35,18 @@ let wsServer = new WebSocketServer({
     autoAcceptConnections: false,
 });
 
+let userClient;
+let telnyxClient;
+
 // WS request handler
 wsServer.on("request", function (request) {
     const connection = request.accept(null, request.origin);
+
+    if (request.origin.includes("scrumad.com")) {
+        userClient = connection;
+    } else {
+        telnyxClient = connection;
+    }
 
     const audioBuffer = new AudioBuffer(async (combinedChunks) => {
         pcmuToMp3Base64(combinedChunks, (mp3Base64, error) => {
@@ -45,7 +54,7 @@ wsServer.on("request", function (request) {
                 console.error("Failed to convert audio:", error);
                 return;
             }
-            connection.send(
+            userClient.send(
                 JSON.stringify({
                     event: "media",
                     media: {
@@ -58,6 +67,7 @@ wsServer.on("request", function (request) {
 
     /* Message handler */
     connection.on("message", function (data) {
+        if (connection == userClient) return;
         /* Forward all messages to client */
         let eventData = JSON.parse(data.utf8Data);
         if (eventData.event == "media") {
@@ -66,10 +76,10 @@ wsServer.on("request", function (request) {
             audioBuffer.add(chunk, sequenceNumber);
         } else if (eventData.event == "stop") {
             audioBuffer.flush();
-            connection.send(data.utf8Data);
+            userClient.send(data.utf8Data);
         } else if (eventData.event == "error") {
         } else {
-            connection.send(data.utf8Data);
+            userClient.send(data.utf8Data);
         }
     });
 
