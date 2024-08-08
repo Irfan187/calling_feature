@@ -29,7 +29,6 @@ const callStatus = ref('No Active Call');
 
 let ws = null;
 let audioContext = null;
-const sampleRate = 8000;
 
 const makeCall = async () => {
     const data = {
@@ -84,94 +83,49 @@ const initializeWebSocketAndAudio = () => {
 const handleStartEvent = (startData) => {
     console.log('Call started with call_control_id:', startData.call_control_id);
     callStatus.value = 'Call Started';
-    sampleRate = startData.media_format.sample_rate; // Update sample rate from media format
 };
 
 const handleMediaEvent = async (mediaData) => {
     const payload = mediaData.payload;
-    await playAudio(payload);
+    try {
+        await playAudio(payload);
+    } catch (error) {
+        console.error(error);
+    }
 };
 
-function decodeBase64ToPCMU(base64) {
-    const binaryString = atob(base64);
-    const pcmuArray = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-        pcmuArray[i] = binaryString.charCodeAt(i);
-    }
-    return pcmuArray;
-}
+const playAudio = async (base64Data) => {
+    return new Promise((resolve, reject) => {
+        try {
+            // Step 1: Decode base64 data to binary data
+            const binaryString = atob(base64Data);
+            const len = binaryString.length;
+            const arrayBuffer = new ArrayBuffer(len);
+            const uint8Array = new Uint8Array(arrayBuffer);
 
-function convertPCMUToPCM(pcmuArray) {
-    const pcmArray = new Int16Array(pcmuArray.length);
-    for (let i = 0; i < pcmuArray.length; i++) {
-        pcmArray[i] = ulawDecode(pcmuArray[i]);
-    }
-    return pcmArray;
-}
+            for (let i = 0; i < len; i++) {
+                uint8Array[i] = binaryString.charCodeAt(i);
+            }
 
-function ulawDecode(ulawByte) {
-    const BIAS = 0x84;
-    ulawByte = ~ulawByte;
-    const sign = ulawByte & 0x80;
-    let exponent = (ulawByte & 0x70) >> 4;
-    let mantissa = ulawByte & 0x0F;
-    mantissa |= 0x10;
-    mantissa <<= 1;
-    mantissa += 1;
-    mantissa <<= exponent + 2;
-    mantissa -= BIAS;
+            // Step 2: Decode the audio data
+            audioContext.decodeAudioData(arrayBuffer, (audioBuffer) => {
+                // Step 3: Play the audio
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
 
-    return (sign ? -mantissa : mantissa);
-}
-
-function createWavBuffer(pcmBuffer) {
-    const bufferLength = pcmBuffer.length;
-    const wavBuffer = new ArrayBuffer(44 + bufferLength * 2);
-    const view = new DataView(wavBuffer);
-
-    // RIFF chunk descriptor
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + bufferLength * 2, true);
-    writeString(view, 8, 'WAVE');
-
-    // FMT sub-chunk
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // Audio format (1 = PCM)
-    view.setUint16(22, 1, true); // Number of channels
-    view.setUint32(24, sampleRate, true); // Sample rate
-    view.setUint32(28, sampleRate * 2, true); // Byte rate
-    view.setUint16(32, 2, true); // Block align
-    view.setUint16(34, 16, true); // Bits per sample
-
-    // Data sub-chunk
-    writeString(view, 36, 'data');
-    view.setUint32(40, bufferLength * 2, true);
-
-    // PCM data
-    let offset = 44;
-    for (let i = 0; i < bufferLength; i++, offset += 2) {
-        view.setInt16(offset, pcmBuffer[i], true);
-    }
-
-    return wavBuffer;
-}
-
-function writeString(view, offset, string) {
-    for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-    }
-}
-
-const playAudio = (base64Data) => {
-    const pcmuData = decodeBase64ToPCMU(base64Data);
-    const pcmData = convertPCMUToPCM(pcmuData);
-    const wavBuffer = createWavBuffer(pcmData);
-    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
-    const url = URL.createObjectURL(blob);
-
-    const audio = new Audio(url);
-    audio.play();
+                // Step 4: Resolve the promise when the audio finishes playing
+                source.onended = () => {
+                    resolve();
+                };
+            }, (error) => {
+                reject('Error decoding audio data: ' + error);
+            });
+        } catch (error) {
+            reject('Error processing audio data: ' + error);
+        }
+    });
 };
 
 const handleStopEvent = (stopData) => {
