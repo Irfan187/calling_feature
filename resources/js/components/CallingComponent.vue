@@ -23,7 +23,8 @@
 import { ref } from 'vue';
 import axios from 'axios';
 import * as lame from '@breezystack/lamejs';
-import { MediaRecorder } from 'extendable-media-recorder';
+import { MediaRecorder, register } from 'extendable-media-recorder';
+import { connect } from 'extendable-media-recorder-wav-encoder';
 
 const to = ref('+17274257260');
 const from = ref('+16265401233');
@@ -142,6 +143,7 @@ const handleStopEvent = (stopData) => {
 };
 
 const startRecording = async () => {
+    await register(await connect());
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
 
