@@ -116,21 +116,22 @@ const initializeWebSocketAndAudio = () => {
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             const reader = new FileReader();
             reader.readAsDataURL(audioBlob);
+            const base64data = "";
             reader.onloadend = () => {
-                const base64data = reader.result.split(',')[1];
+                base64data = reader.result.split(',')[1];
                 base64Array.push(base64data);
             };
-            playAudio(audioBuffer);
+            playAudio(audioBuffer,base64data);
             audioChunks = []; // Clear the chunks after processing
         };
     }
 
-    function playAudio(audioBuffer) {
+    function playAudio(audioBuffer,base64data) {
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContext.destination);
         source.start(0);
-        console.log('base', base64Array);
+        console.log('base', base64data);
     }
 
 };
