@@ -28,12 +28,16 @@ const from = ref('+16265401233');
 const callStatus = ref('No Active Call');
 
 let ws = null;
-let audioContext = null;
 const sampleRate = 8000;
 
-let mediaStream;
-let mediaStreamSource;
-let gainNode;
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+let recorder;
+let audioChunks = [];
+let recordingInterval;
+let isRecording = false;
+let base64Array = [];
+
 const makeCall = async () => {
     const data = {
         to: to.value,
@@ -74,41 +78,61 @@ const initializeWebSocketAndAudio = () => {
             // Record own voice and send it to websocket
 
             if (eventData.event === "start") {
-                // mediaRecorder.start = function (event) {
-                //     console.log({ 'event': event });
-                // };
-                // mediaRecorder.ondataavailable = function (e) {
-                //     var object =
-                //     {
-                //         "event": "media",
-                //         "media": {
-                //             "payload": btoa(e.data)
-                //         }
-                //     };
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const input = audioContext.createMediaStreamSource(stream);
+                recorder = new MediaRecorder(stream);
 
-                //     ws.send(JSON.stringify(object));
-                // }
-                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                console.log(mediaStream);
+                recorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
 
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
+                recordingInterval = setInterval(() => {
+                    if (isRecording) {
+                        stopRecording();
+                    } else {
+                        recorder.start();
+                        isRecording = true;
+                    }
+                }, 100);
 
-                gainNode = audioContext.createGain();
-                gainNode.gain.value = 1;  // Adjust the gain value if needed
-
-                mediaStreamSource.connect(gainNode);
-                gainNode.connect(audioContext.destination);
             } else if (eventData.event === "stop") {
-                // mediaRecorder.stop();
-                mediaStreamSource.disconnect();
-                gainNode.disconnect();
-                mediaStream.getTracks().forEach(track => track.stop());
+                clearInterval(recordingInterval);
+                if (recorder && recorder.state !== 'inactive') {
+                    recorder.stop();
+                }
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
         }
     };
+
+    function stopRecording() {
+        recorder.stop();
+        isRecording = false;
+
+        recorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => {
+                const base64data = reader.result.split(',')[1];
+                base64Array.push(base64data);
+            };
+            playAudio(audioBuffer);
+            audioChunks = []; // Clear the chunks after processing
+        };
+    }
+
+    function playAudio(audioBuffer) {
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        console.log('base', base64Array);
+    }
+
 };
 
 
