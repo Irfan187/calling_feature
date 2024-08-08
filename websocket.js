@@ -45,30 +45,30 @@ wsServer.on("request", function (request) {
                 console.error("Failed to convert audio:", error);
                 return;
             }
-            connection.send({
-                event: "media",
-                media: {
-                    payload: mp3Base64,
-                },
-            });
+            connection.send(
+                JSON.stringify({
+                    event: "media",
+                    media: {
+                        payload: mp3Base64,
+                    },
+                })
+            );
         });
     });
 
     /* Message handler */
     connection.on("message", function (data) {
         /* Forward all messages to client */
-        let eventData = data.utf8Data;
-        console.log(eventData);
-        console.log(eventData.event);
+        let eventData = JSON.parse(data.utf8Data);
         if (eventData.event == "media") {
             const chunk = Buffer.from(eventData.payload, "base64");
             const sequenceNumber = data.sequence_number;
             audioBuffer.add(chunk, sequenceNumber);
         } else if (eventData.event == "stop") {
             audioBuffer.flush();
-            connection.send(eventData);
+            connection.send(data.utf8Data);
         } else {
-            connection.send(eventData);
+            connection.send(data.utf8Data);
         }
     });
 
