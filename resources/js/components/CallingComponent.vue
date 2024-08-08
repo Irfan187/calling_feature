@@ -27,8 +27,14 @@ const to = ref('+17274257260');
 const from = ref('+16265401233');
 const callStatus = ref('No Active Call');
 
+let recorder;
+let audioChunks = [];
+let recordingInterval;
+let isRecording = false;
+let base64Array = [];
 let ws = null;
 let audioContext = null;
+const audioContextOutgoing = new (window.AudioContext || window.webkitAudioContext)();
 
 const makeCall = async () => {
     const data = {
@@ -80,9 +86,25 @@ const initializeWebSocketAndAudio = () => {
     };
 };
 
-const handleStartEvent = (startData) => {
+const handleStartEvent = async (startData) => {
     console.log('Call started with call_control_id:', startData.call_control_id);
     callStatus.value = 'Call Started';
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const input = audioContextOutgoing.createMediaStreamSource(stream);
+    recorder = new MediaRecorder(stream);
+
+    recorder.ondataavailable = event => {
+        audioChunks.push(event.data);
+    };
+
+    recordingInterval = setInterval(() => {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            recorder.start();
+            isRecording = true;
+        }
+    }, 100);
 };
 
 const handleMediaEvent = async (mediaData) => {
@@ -131,7 +153,31 @@ const playAudio = async (base64Data) => {
 const handleStopEvent = (stopData) => {
     console.log('Call stopped with call_control_id:', stopData.call_control_id);
     callStatus.value = 'Call Stopped';
+    clearInterval(recordingInterval);
+    if (recorder && recorder.state !== 'inactive') {
+        recorder.stop();
+    }
 };
+
+function stopRecording() {
+    recorder.stop();
+    isRecording = false;
+
+    recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContextOutgoing.decodeAudioData(arrayBuffer);
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+            const base64data = reader.result.split(',')[1];
+            console.log('base', base64data);
+        };
+        audioChunks = []; // Clear the chunks after processing
+    };
+}
+
+
 </script>
 
 <style scoped>
