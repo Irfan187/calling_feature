@@ -60,14 +60,14 @@ wsServer.on("request", function (request) {
     connection.on("message", function (data) {
         /* Forward all messages to client */
         let eventData = JSON.parse(data.utf8Data);
-        console.log(eventData);
         if (eventData.event == "media") {
-            const chunk = Buffer.from(eventData.payload, "base64");
-            const sequenceNumber = data.sequence_number;
+            const chunk = Buffer.from(eventData.media.payload, "base64");
+            const sequenceNumber = eventData.sequence_number;
             audioBuffer.add(chunk, sequenceNumber);
         } else if (eventData.event == "stop") {
             audioBuffer.flush();
             connection.send(data.utf8Data);
+        } else if (eventData.event == "error") {
         } else {
             connection.send(data.utf8Data);
         }
