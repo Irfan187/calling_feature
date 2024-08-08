@@ -42,7 +42,7 @@ let telnyxClient;
 wsServer.on("request", function (request) {
     const connection = request.accept(null, request.origin);
 
-    if (request.origin.includes("scrumad.com")) {
+    if (request.origin?.includes("scrumad.com")) {
         userClient = connection;
     } else {
         telnyxClient = connection;
