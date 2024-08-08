@@ -171,7 +171,13 @@ function stopRecording() {
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
             const base64data = reader.result.split(',')[1];
-            console.log('base', base64data);
+            var payload = {
+                "event": "media",
+                "media": {
+                    "payload": base64data
+                }
+            };
+            ws.send(payload);
         };
         audioChunks = []; // Clear the chunks after processing
     };

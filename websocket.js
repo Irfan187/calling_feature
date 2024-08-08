@@ -67,22 +67,26 @@ wsServer.on("request", function (request) {
 
     /* Message handler */
     connection.on("message", function (data) {
-        if (connection == userClient) return;
-        /* Forward all messages to client */
-        let eventData = JSON.parse(data.utf8Data);
-        if (eventData.event == "media") {
-            const chunk = Buffer.from(eventData.media.payload, "base64");
-            const sequenceNumber = eventData.sequence_number;
-            audioBuffer.add(chunk, sequenceNumber);
-        } else if (eventData.event == "stop") {
-            audioBuffer.flush();
-            userClient?.send(data.utf8Data);
-        } else if (eventData.event == "error") {
-        } else {
-            userClient?.send(data.utf8Data);
+        if (connection == userClient) {
+            console.log('client data',data);
+        } else if (connection == telnyxClient) {
+            /* Forward all messages to client */
+            let eventData = JSON.parse(data.utf8Data);
+            if (eventData.event == "media") {
+                const chunk = Buffer.from(eventData.media.payload, "base64");
+                const sequenceNumber = eventData.sequence_number;
+                audioBuffer.add(chunk, sequenceNumber);
+            } else if (eventData.event == "stop") {
+                audioBuffer.flush();
+                userClient?.send(data.utf8Data);
+            } else if (eventData.event == "error") {
+            } else {
+                userClient?.send(data.utf8Data);
+            }
         }
+
     });
 
     /* Close connection handler */
-    connection.on("close", function (reasonCode, description) {});
+    connection.on("close", function (reasonCode, description) { });
 });
