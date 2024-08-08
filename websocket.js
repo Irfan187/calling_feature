@@ -58,6 +58,8 @@ wsServer.on("request", function (request) {
     connection.on("message", function (data) {
         /* Forward all messages to client */
         let eventData = data.utf8Data;
+        console.log(eventData);
+        console.log(eventData.event);
         if (eventData.event == "media") {
             const chunk = Buffer.from(eventData.payload, "base64");
             const sequenceNumber = data.sequence_number;
