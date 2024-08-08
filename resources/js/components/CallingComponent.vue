@@ -104,7 +104,7 @@ const handleStartEvent = async (startData) => {
             recorder.start();
             isRecording = true;
         }
-    }, 100);
+    }, 1000);
 };
 
 const handleMediaEvent = async (mediaData) => {
