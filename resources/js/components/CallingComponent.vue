@@ -177,7 +177,7 @@ function stopRecording() {
                     "payload": base64data
                 }
             };
-            ws.send(payload);
+            ws.send(JSON.stringify(payload));
         };
         audioChunks = []; // Clear the chunks after processing
     };
