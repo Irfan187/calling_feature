@@ -116,7 +116,7 @@ const initializeWebSocketAndAudio = () => {
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             const reader = new FileReader();
             reader.readAsDataURL(audioBlob);
-            const base64data = "";
+            let base64data = "";
             reader.onloadend = () => {
                 base64data = reader.result.split(',')[1];
                 base64Array.push(base64data);
