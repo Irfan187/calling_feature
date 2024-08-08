@@ -54,7 +54,7 @@ wsServer.on("request", function (request) {
                 console.error("Failed to convert audio:", error);
                 return;
             }
-            userClient.send(
+            userClient?.send(
                 JSON.stringify({
                     event: "media",
                     media: {
@@ -76,10 +76,10 @@ wsServer.on("request", function (request) {
             audioBuffer.add(chunk, sequenceNumber);
         } else if (eventData.event == "stop") {
             audioBuffer.flush();
-            userClient.send(data.utf8Data);
+            userClient?.send(data.utf8Data);
         } else if (eventData.event == "error") {
         } else {
-            userClient.send(data.utf8Data);
+            userClient?.send(data.utf8Data);
         }
     });
 
