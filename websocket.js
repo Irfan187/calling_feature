@@ -63,7 +63,7 @@ wsServer.on("request", function (request) {
                 })
             );
         });
-    });
+    }, 160);
 
     /* Message handler */
     connection.on("message", function (data) {
