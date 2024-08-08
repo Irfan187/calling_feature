@@ -175,7 +175,7 @@ const stopRecording = () => {
 const processAndSendAudio = async (blob) => {
     const arrayBuffer = await blob.arrayBuffer();
     const mp3Data = await encodeToMP3(arrayBuffer);
-
+    console.log(mp3Data);
     if (ws && ws.readyState === WebSocket.OPEN) {
         let payload = {
             "event": "media",
@@ -190,6 +190,7 @@ const processAndSendAudio = async (blob) => {
 const encodeToMP3 = (buffer) => {
     return new Promise((resolve, reject) => {
         const wav = lame.WavHeader.readHeader(new DataView(buffer));
+        console.log(wav);
         const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
         const mp3Encoder = new lame.Mp3Encoder(wav.channels, wav.sampleRate, 128);
         const mp3Data = [];
