@@ -9,7 +9,6 @@
 </template>
 
 <script setup>
-import * as lame from '@breezystack/lamejs';
 import { MediaRecorder, register } from 'extendable-media-recorder';
 import { connect } from 'extendable-media-recorder-wav-encoder';
 import { ref } from 'vue';
@@ -19,6 +18,15 @@ let audioChunks = [];
 let audioContext = null;
 let recordingInterval;
 let isRecording = ref(false);
+let audioWorker = new Worker('../audioRecorder.js');
+
+audioWorker.onmessage = async (event) => {
+    const { command, data } = event.data;
+
+    if (command === 'processed') {
+        await playAudio(data);
+    }
+};
 
 const handleStartEvent = () => {
     if (!audioContext) {
@@ -44,18 +52,13 @@ const startRecording = async () => {
         audioChunks.push(event.data);
     });
 
-    mediaRecorder.addEventListener('stop', async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        audioChunks = [];
-        await processAndPlayAudio(audioBlob);
-        mediaRecorder.start();
-    });
-
     mediaRecorder.start();
 
     recordingInterval = setInterval(() => {
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
+        if (audioChunks.length > 0) {
+            const audioData = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = [];
+            audioWorker.postMessage({ command: 'process', data: audioData });
         }
     }, 1000);
 }
@@ -63,12 +66,6 @@ const startRecording = async () => {
 const stopRecording = () => {
     mediaRecorder.stop();
     clearInterval(recordingInterval);
-}
-
-const processAndPlayAudio = async (blob) => {
-    const arrayBuffer = await blob.arrayBuffer();
-    const mp3Data = await encodeToMP3(arrayBuffer);
-    await playAudio(mp3Data);
 }
 
 const playAudio = async (base64Data) => {
@@ -105,44 +102,6 @@ const playAudio = async (base64Data) => {
     });
 };
 
-const encodeToMP3 = (buffer) => {
-    return new Promise((resolve, reject) => {
-        const wav = lame.WavHeader.readHeader(new DataView(buffer));
-        const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
-        const mp3Encoder = new lame.Mp3Encoder(wav.channels, wav.sampleRate, 128);
-        const mp3Data = [];
-        let mp3Buffer;
 
-        if (wav.channels == 2) {
-            const leftChannel = [];
-            const rightChannel = [];
-            for (let i = 0; i < samples.length; i += 2) {
-                leftChannel.push(samples[i]);
-                rightChannel.push(samples[i + 1]);
-            }
-
-            mp3Buffer = mp3Encoder.encodeBuffer(leftChannel, rightChannel);
-        } else {
-            mp3Buffer = mp3Encoder.encodeBuffer(samples);
-        }
-
-        if (mp3Buffer.length > 0) {
-            mp3Data.push(mp3Buffer);
-        }
-
-        mp3Buffer = mp3Encoder.flush();
-        if (mp3Buffer.length > 0) {
-            mp3Data.push(mp3Buffer);
-        }
-
-        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
-        const reader = new FileReader();
-        reader.onload = () => {
-            const base64data = reader.result.split(',')[1];
-            resolve(base64data);
-        };
-        reader.readAsDataURL(blob);
-    });
-}
 
 </script>
