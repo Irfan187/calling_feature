@@ -2,8 +2,8 @@
     <div class="container mt-5">
         <h1>Audio recorder loopback test</h1>
 
-        <button type="button" class="btn btn-primary" @click="handleStartEvent">Start</button>
-        <button type="button" class="btn btn-primary" @click="handleStopEvent">Stop</button>
+        <button type="button" class="btn btn-primary me-2" @click="handleStartEvent" v-if="!isRecording">Start</button>
+        <button type="button" class="btn btn-primary" @click="handleStopEvent" v-else>Stop</button>
     </div>
 
 </template>
@@ -15,20 +15,22 @@ import { connect } from 'extendable-media-recorder-wav-encoder';
 
 let mediaRecorder;
 let audioChunks = [];
-let ws = null;
 let audioContext = null;
 let recordingInterval;
+let isRecording = ref(false);
 
-const handleStartEvent = async (startData) => {
+const handleStartEvent = () => {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
     } else if (audioContext.state === 'suspended') {
         audioContext.resume();
     }
     startRecording();
+    isRecording.value = true;
 };
 
-const handleStopEvent = (stopData) => {
+const handleStopEvent = () => {
+    isRecording.value = false;
     stopRecording();
 };
 
