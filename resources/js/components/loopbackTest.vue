@@ -9,7 +9,6 @@
 </template>
 
 <script setup>
-import axios from 'axios';
 import * as lame from '@breezystack/lamejs';
 import { MediaRecorder, register } from 'extendable-media-recorder';
 import { connect } from 'extendable-media-recorder-wav-encoder';
@@ -19,19 +18,6 @@ let audioChunks = [];
 let ws = null;
 let audioContext = null;
 let recordingInterval;
-
-const makeCall = async () => {
-    const data = {
-        to: to.value,
-        from: from.value,
-    };
-    try {
-        await axios.post('/api/make-call', data);
-        initializeWebSocketAndAudio();
-    } catch (error) {
-        console.error('Error making call:', error);
-    }
-};
 
 const handleStartEvent = async (startData) => {
     if (!audioContext) {
@@ -44,22 +30,21 @@ const handleStartEvent = async (startData) => {
 
 const handleStopEvent = (stopData) => {
     stopRecording();
-    ws.close();
 };
 
 const startRecording = async () => {
     await register(await connect());
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav', audioChannels: 1 });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
 
     mediaRecorder.addEventListener('dataavailable', event => {
         audioChunks.push(event.data);
     });
 
-    mediaRecorder.addEventListener('stop', () => {
+    mediaRecorder.addEventListener('stop', async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
         audioChunks = [];
-        processAndPlayAudio(audioBlob);
+        await processAndPlayAudio(audioBlob);
     });
 
     mediaRecorder.start();
@@ -69,7 +54,7 @@ const startRecording = async () => {
             mediaRecorder.stop();
             mediaRecorder.start();
         }
-    }, 100);
+    }, 1000);
 }
 
 const stopRecording = () => {
