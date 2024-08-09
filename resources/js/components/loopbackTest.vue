@@ -18,7 +18,7 @@ let audioChunks = [];
 let audioContext = null;
 let recordingInterval;
 let isRecording = ref(false);
-let audioWorker = new Worker('../audioRecorder.js');
+let audioWorker = new Worker(new URL('../audioRecorder.js', import.meta.url), { type: 'module' });
 
 audioWorker.onmessage = async (event) => {
     const { command, data } = event.data;
