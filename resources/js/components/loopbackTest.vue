@@ -12,6 +12,7 @@
 import * as lame from '@breezystack/lamejs';
 import { MediaRecorder, register } from 'extendable-media-recorder';
 import { connect } from 'extendable-media-recorder-wav-encoder';
+import { ref } from 'vue';
 
 let mediaRecorder;
 let audioChunks = [];
