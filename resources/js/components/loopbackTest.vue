@@ -21,6 +21,7 @@ let isRecording = ref(false);
 let audioWorker = new Worker(new URL('../audioRecorder.js', import.meta.url), { type: 'module' });
 
 audioWorker.onmessage = async (event) => {
+    console.log(event);
     const { command, data } = event.data;
 
     if (command === 'processed') {
@@ -52,13 +53,20 @@ const startRecording = async () => {
         audioChunks.push(event.data);
     });
 
-    mediaRecorder.start();
-
-    recordingInterval = setInterval(() => {
+    mediaRecorder.addEventListener('stop', async () => {
         if (audioChunks.length > 0) {
             const audioData = new Blob(audioChunks, { type: 'audio/wav' });
             audioChunks = [];
             audioWorker.postMessage({ command: 'process', data: audioData });
+        }
+    });
+
+    mediaRecorder.start();
+
+    setInterval(() => {
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            mediaRecorder.start();
         }
     }, 1000);
 }
