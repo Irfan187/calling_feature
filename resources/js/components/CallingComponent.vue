@@ -164,7 +164,7 @@ const startRecording = async () => {
             mediaRecorder.stop();
             mediaRecorder.start();
         }
-    }, 1000);
+    }, 100);
 }
 
 const stopRecording = () => {
