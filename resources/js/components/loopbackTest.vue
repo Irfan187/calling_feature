@@ -51,8 +51,7 @@ const startRecording = async () => {
 
     recordingInterval = setInterval(() => {
         if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            mediaRecorder.start();
+            mediaRecorder.requestData();
         }
     }, 1000);
 }
