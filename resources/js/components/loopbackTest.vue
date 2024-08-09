@@ -18,9 +18,9 @@ let audioChunks = [];
 let audioContext = null;
 let recordingInterval;
 let isRecording = ref(false);
-let audioWorker = new Worker(new URL('../audioRecorder.js', import.meta.url), { type: 'module' });
+let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
 
-audioWorker.onmessage = async (event) => {
+audioEncoder.onmessage = async (event) => {
     console.log(event);
     const { command, data } = event.data;
 
@@ -57,7 +57,7 @@ const startRecording = async () => {
         if (audioChunks.length > 0) {
             const audioData = new Blob(audioChunks, { type: 'audio/wav' });
             audioChunks = [];
-            audioWorker.postMessage({ command: 'process', data: audioData });
+            audioEncoder.postMessage({ command: 'process', data: audioData });
         }
     });
 
