@@ -48,13 +48,14 @@ const startRecording = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
         audioChunks = [];
         await processAndPlayAudio(audioBlob);
+        mediaRecorder.start();
     });
 
     mediaRecorder.start();
 
     recordingInterval = setInterval(() => {
         if (mediaRecorder.state === 'recording') {
-            mediaRecorder.requestData();
+            mediaRecorder.stop();
         }
     }, 1000);
 }
