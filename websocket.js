@@ -37,6 +37,7 @@ let wsServer = new WebSocketServer({
 
 let userClient;
 let telnyxClient;
+let clients = {};
 
 // WS request handler
 wsServer.on("request", function (request) {
@@ -67,6 +68,34 @@ wsServer.on("request", function (request) {
 
     /* Message handler */
     connection.on("message", function (data) {
+        // let length = Object.keys(clients).length;
+        // let call_id = 'call_id_from_data';
+        // if(length == 0){
+        //     clients["call_id"] = {
+        //         "user_client": "3456hhhh",
+        //         "telnyx_client": "345t5555555"
+        //     };
+        //     connection = clients['call_id']['telnyx_client'];
+        //     telnyxClient = connection;
+        // }else{
+        //     if(call_id in clients){
+        //         if (request.origin?.includes("scrumad.com")) {
+        //             userClient = clients['call_id']['user_client'];
+        //         } else {
+        //             telnyxClient = clients['call_id']['telnyx_client'];
+        //         }
+        //     }else{
+        //         clients["call_id"] = call_id;
+        //         if (request.origin?.includes("scrumad.com")) {
+        //             clients['call_id']['user_client'] = connection;
+        //             userClient = clients['call_id']['user_client'];
+        //         } else {
+        //             clients['call_id']['telnyx_client'] = connection;
+        //             telnyxClient = clients['call_id']['telnyx_client'];
+        //         }
+        //     }
+        // }
+        console.log(data.utf8Data);
         if (connection == userClient) {
             telnyxClient.send(data.utf8Data);
         } else if (connection == telnyxClient) {
