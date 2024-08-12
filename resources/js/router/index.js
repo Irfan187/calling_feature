@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 
 const getCallingFeatureForm = () => import("@/components/CallingComponent.vue");
 const outgoing = () => import("@/components/OutgoingVoiceComponent.vue");
-
+const loopbackTest = () => import("@/components/loopbackTest.vue");
 
 const routes = [
     {
@@ -21,6 +21,16 @@ const routes = [
         component: outgoing,
         meta: {
             title: `Calling Feature`,
+            authRequired: false,
+            isAuthLayout: true,
+        },
+    },
+    {
+        name: "loopback-test",
+        path: "/loopback-test",
+        component: loopbackTest,
+        meta: {
+            title: `Loopback Test`,
             authRequired: false,
             isAuthLayout: true,
         },
