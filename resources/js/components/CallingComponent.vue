@@ -79,6 +79,7 @@ const makeCall = async () => {
 
     /**  Call Recording Feature Start */
 const startCallRecording = async () => {
+    console.log(call_control_id.value);
     const data = {
         to: to.value,
         from: from.value,
