@@ -11,6 +11,10 @@
         </div>
 
         <button type="button" class="btn btn-primary" @click="makeCall">Make Call</button>
+        <br><br>
+        <button type="button" class="btn btn-primary" @click="startCallRecording">start Call Recording</button>
+        <br><br>
+        <button type="button" class="btn btn-primary" @click="endCallRecording">end Call Recording</button>
 
         <div class="my-3">
             <div>{{ callStatus }}</div>
@@ -28,19 +32,27 @@ import { connect } from 'extendable-media-recorder-wav-encoder';
 const to = ref('+17274257260');
 const from = ref('+16265401233');
 const callStatus = ref('No Active Call');
-
+const call_control_id = ref('');
 let mediaRecorder;
 let audioChunks = [];
 let ws = null;
 let audioContext = null;
 let recordingInterval;
 let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
-
+const isJSONObject = data => {
+    return typeof data === 'object' && data !== null && !Array.isArray(data);
+};
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
 
     if (command === 'processed') {
         if (ws && ws.readyState === WebSocket.OPEN) {
+            if (isJSONObject(data.utf8Data) == true) {
+                let getEventData = JSON.parse(event.utf8Data);
+                if (getEventData.event == 'start') {
+                    call_control_id.value = getEventData.start.call_control_id;
+                }
+            }
             let payload = {
                 "event": "media",
                 "media": {
@@ -64,6 +76,35 @@ const makeCall = async () => {
         console.error('Error making call:', error);
     }
 };
+
+    /**  Call Recording Feature Start */
+const startCallRecording = async () => {
+    const data = {
+        to: to.value,
+        from: from.value,
+        call_control_id: call_control_id.value
+    };
+    try {
+        await axios.post('/api/start-call-recording', data);
+    } catch (error) {
+        console.error('Error making call:', error);
+    }
+};
+
+const endCallRecording = async () => {
+    const data = {
+        to: to.value,
+        from: from.value,
+        call_control_id: call_control_id.value
+    };
+    try {
+        await axios.post('/api/end-call-recording', data);
+    } catch (error) {
+        console.error('Error making call:', error);
+    }
+};
+
+    /**  Call Recording Feature End */
 
 const initializeWebSocketAndAudio = () => {
     if (!audioContext) {

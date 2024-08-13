@@ -75,49 +75,49 @@ wsServer.on("request", function (request) {
     connection.on("message", function (data) {
         // multiple call handling start
 
-        let length = Object.keys(clients).length;
+        // let length = Object.keys(clients).length;
         
-        if (isJSONObject(data.utf8Data) == true) {
-            let getEventData = JSON.parse(data.utf8Data);
-            if (getEventData.event == 'start') {
-                call_id = getEventData.start.call_control_id;
-            }
-        }
-        if (length == 0) {
-            clients[call_id] = {
-                "user_client": "",
-                "telnyx_client": connection
-            };
-            connection = clients[call_id]['telnyx_client'];
-            telnyxClient = connection;
-        } else {
-            if (call_id in clients) {
-                if (request.origin?.includes("scrumad.com")) {
-                    if(clients[call_id]['user_client']){
-                        userClient = clients[call_id]['user_client'];
-                    }else{
-                        clients[call_id]['user_client'] = connection;
-                        userClient = connection;
-                    }
-                } else {
-                    if(clients[call_id]['telnyxClient']){
-                        telnyxClient = clients[call_id]['telnyxClient'];
-                    }else{
-                        clients[call_id]['telnyxClient'] = connection;
-                        telnyxClient = connection;
-                    }
-                }
-            } else {
-                clients["call_id"] = call_id;
-                if (request.origin?.includes("scrumad.com")) {
-                    clients[call_id]['user_client'] = connection;
-                    userClient = clients[call_id]['user_client'];
-                } else {
-                    clients[call_id]['telnyx_client'] = connection;
-                    telnyxClient = clients[call_id]['telnyx_client'];
-                }
-            }
-        }
+        // if (isJSONObject(data.utf8Data) == true) {
+        //     let getEventData = JSON.parse(data.utf8Data);
+        //     if (getEventData.event == 'start') {
+        //         call_id = getEventData.start.call_control_id;
+        //     }
+        // }
+        // if (length == 0) {
+        //     clients[call_id] = {
+        //         "user_client": "",
+        //         "telnyx_client": connection
+        //     };
+        //     connection = clients[call_id]['telnyx_client'];
+        //     telnyxClient = connection;
+        // } else {
+        //     if (call_id in clients) {
+        //         if (request.origin?.includes("scrumad.com")) {
+        //             if(clients[call_id]['user_client']){
+        //                 userClient = clients[call_id]['user_client'];
+        //             }else{
+        //                 clients[call_id]['user_client'] = connection;
+        //                 userClient = connection;
+        //             }
+        //         } else {
+        //             if(clients[call_id]['telnyxClient']){
+        //                 telnyxClient = clients[call_id]['telnyxClient'];
+        //             }else{
+        //                 clients[call_id]['telnyxClient'] = connection;
+        //                 telnyxClient = connection;
+        //             }
+        //         }
+        //     } else {
+        //         clients["call_id"] = call_id;
+        //         if (request.origin?.includes("scrumad.com")) {
+        //             clients[call_id]['user_client'] = connection;
+        //             userClient = clients[call_id]['user_client'];
+        //         } else {
+        //             clients[call_id]['telnyx_client'] = connection;
+        //             telnyxClient = clients[call_id]['telnyx_client'];
+        //         }
+        //     }
+        // }
 
         // multiple call handling end
 
