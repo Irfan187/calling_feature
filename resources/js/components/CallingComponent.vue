@@ -39,20 +39,12 @@ let ws = null;
 let audioContext = null;
 let recordingInterval;
 let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
-const isJSONObject = data => {
-    return typeof data === 'object' && data !== null && !Array.isArray(data);
-};
+
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
 
     if (command === 'processed') {
         if (ws && ws.readyState === WebSocket.OPEN) {
-            if (isJSONObject(data.utf8Data) == true) {
-                let getEventData = JSON.parse(event.utf8Data);
-                if (getEventData.event == 'start') {
-                    call_control_id.value = getEventData.start.call_control_id;
-                }
-            }
             let payload = {
                 "event": "media",
                 "media": {
@@ -146,6 +138,7 @@ const initializeWebSocketAndAudio = () => {
 
 const handleStartEvent = async (startData) => {
     console.log('Call started with call_control_id:', startData.call_control_id);
+    call_control_id.value = startData.call_control_id;
     callStatus.value = 'Call Started';
     startRecording();
 };
