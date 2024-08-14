@@ -40,8 +40,6 @@ export function pcmuToMp3Base64(pcmuBuffer, callback) {
             "silencedetect=noise=-30dB:d=0.5",
             "-f",
             "mp3",
-            "-ar",
-            "8000",
             "pipe:1",
         ],
         { stdio: ["pipe", "pipe", "inherit"] }
