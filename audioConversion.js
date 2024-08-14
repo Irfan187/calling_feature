@@ -41,7 +41,7 @@ export function pcmuToMp3Base64(pcmuBuffer, callback) {
             "-f",
             "mp3",
             "-ar",
-            "44100",
+            "8000",
             "pipe:1",
         ],
         { stdio: ["pipe", "pipe", "inherit"] }
