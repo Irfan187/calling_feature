@@ -69,7 +69,7 @@ const makeCall = async () => {
     }
 };
 
-    /**  Call Recording Feature Start */
+/**  Call Recording Feature Start */
 const startCallRecording = async () => {
     console.log(call_control_id.value);
     const data = {
@@ -97,7 +97,7 @@ const endCallRecording = async () => {
     }
 };
 
-    /**  Call Recording Feature End */
+/**  Call Recording Feature End */
 
 const initializeWebSocketAndAudio = () => {
     if (!audioContext) {
