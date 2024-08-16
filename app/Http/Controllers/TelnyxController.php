@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\Functions;
 use Illuminate\Http\Request;
 use App\Services\TelnyxService;
 use Exception;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class TelnyxController extends Controller
 {
@@ -37,19 +40,15 @@ class TelnyxController extends Controller
         return response()->json($result);
     }
 
-    public function callback(Request $request)
-    {
-        $event = $request['data']['event_type'];
-        logger('telnyx event', $event);
-        return true;
-    }
+
 
     /**  Call Recording Feature Start */
-    public function startCallRecording(Request $request){
+    public function startCallRecording(Request $request)
+    {
         $to = $request->to;
         $from = $request->from;
         $call_control_id = $request->call_control_id;
-        $response = $this->client->post('https://api.telnyx.com/v2/calls/'.$call_control_id.'/actions/record_start', [
+        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/record_start', [
             'json' => [
                 'channels' => 'single',
                 'format' => 'mp3'
@@ -59,15 +58,40 @@ class TelnyxController extends Controller
         return json_decode($response->getBody(), true);
     }
 
-    public function endCallRecording(Request $request){
+    public function endCallRecording(Request $request)
+    {
         $to = $request->to;
         $from = $request->from;
         $call_control_id = $request->call_control_id;
-        $response = $this->client->post('https://api.telnyx.com/v2/calls/'.$call_control_id.'/actions/record_stop');
+        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/record_stop');
 
         return json_decode($response->getBody(), true);
     }
 
     /**  Call Recording Feature End */
 
+    public function terminateCall($user, $call)
+    {
+        $uuid = Str::uuid()->toString();
+        $payload = [
+            "client_state" => $call->client_state ? $call->client_state : base64_encode($user->id . "-call-" . md5($user->uuid) . '-' . time()),
+            "command_id" => $uuid,
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.telnyx.api_key'),
+            'Content-Type' => 'application/json',
+        ])->post('https://api.telnyx.com/v2/calls/' . $call->call_control_id . '/actions/hangup', $payload);
+
+        $result = $response->json();
+
+        if (!Functions::telnyx_error_check($result)) {
+            $call->status = 'completed';
+            $call->save();
+            throw new Exception($result['error']);
+        }
+
+        logger($result);
+        return $result['data'];
+    }
 }

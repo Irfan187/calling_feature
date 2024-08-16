@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\TelnyxController;
+use App\Http\Controllers\TelnyxWebhooksController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -21,7 +22,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 Route::post('/make-call', [TelnyxController::class, 'makeCall']);
-Route::post('/webhook', [TelnyxController::class, 'callback']);
+Route::post('/webhook', [TelnyxWebhooksController::class, 'callback']);
 
 Route::post('/start-call-recording', [TelnyxController::class, 'startCallRecording']);
 Route::post('/end-call-recording', [TelnyxController::class, 'endCallRecording']);
