@@ -29,7 +29,7 @@ class TelnyxWebhooksController extends Controller
             Telnyx::setApiKey(config('services.telnyx.api_key'));
             $webhookEvent = TelnyxWebhook::constructFromRequest(config('services.telnyx.public_key'));
 
-            $user = User::where('uuid', $uuid)->get()->first();
+            $user = User::first();
             if (Functions::is_empty($user)) {
                 return false;
             }

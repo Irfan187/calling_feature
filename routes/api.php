@@ -22,7 +22,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 Route::post('/make-call', [TelnyxController::class, 'makeCall']);
-Route::post('/webhook', [TelnyxWebhooksController::class, 'callback']);
+Route::post('/webhook/{uuid}', [TelnyxWebhooksController::class, 'callback']);
 
 Route::post('/start-call-recording', [TelnyxController::class, 'startCallRecording']);
 Route::post('/end-call-recording', [TelnyxController::class, 'endCallRecording']);
