@@ -4,22 +4,10 @@ namespace App\Models;
 
 use App\Http\Controllers\AttachmentController;
 
-use App\Events\LowBalance;
-use App\Helpers\Functions;
-use App\Http\Controllers\StripeController;
-use App\Notifications\CustomVerifyEmail;
-use App\Traits\HasProfilePhoto;
-use Carbon\Carbon;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
