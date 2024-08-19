@@ -33,8 +33,7 @@ class TelnyxWebhooksController extends Controller
             if (Functions::is_empty($user)) {
                 return false;
             }
-            logger($request->exists('data'));
-            logger(["user" => $user]);
+           
             if ($request->exists('data')) {
                 $webhookData = $request->all()['data'];
                 $eventType = $webhookData['event_type'];
@@ -51,7 +50,7 @@ class TelnyxWebhooksController extends Controller
                     $call = Call::where('call_control_id', $call_control_id)->get()->first();
                 }
 
-
+                logger(['direction' => $payload['direction']]);
                 switch ($eventType) {
                     case 'call.initiated':
                         $direction = $payload['direction'];
@@ -153,7 +152,7 @@ class TelnyxWebhooksController extends Controller
                             ]);
 
                             $call->save();
-
+                            logger(['call initiated' => $call]);
                             if ($activeCall) {
                                 break;
                             }
