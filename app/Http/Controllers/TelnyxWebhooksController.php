@@ -20,9 +20,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
-
 class TelnyxWebhooksController extends Controller
 {
+    public $call = null;
+
     public function callControlWebhook(Request $request)
     {
         try {
@@ -44,10 +45,10 @@ class TelnyxWebhooksController extends Controller
                 }
 
                 $call_control_id = null;
-                $call = null;
+                
                 if (isset($payload) && isset($payload['call_control_id'])) {
                     $call_control_id = $payload['call_control_id'];
-                    $call = Call::where('call_control_id', $call_control_id)->get()->first();
+                    $this->call = Call::where('call_control_id', $call_control_id)->get()->first();
                 }
                 switch ($eventType) {
                     case 'call.initiated':
@@ -133,7 +134,7 @@ class TelnyxWebhooksController extends Controller
                                 // }
                             }
                             logger(['data before call']);
-                            $call = new Call([
+                            $this->call = new Call([
                                 'user_id' => $user->id,
                                 'contact_id' => $contact->id,
                                 'phone_number_id' => $phone->id,
@@ -150,113 +151,113 @@ class TelnyxWebhooksController extends Controller
                                 'last_outbound_call_activity' => Carbon::now()->toDateTimeString(),
                             ]);
 
-                            $call->save();
-                            logger(['call initiated' => $call]);
+                            $this->call->save();
+                            logger(['call initiated' => $this->call]);
                             if ($activeCall) {
                                 break;
                             }
                         }
                         if ($direction == 'outgoing') {
-                            if (Functions::not_empty($call)) {
-                                $call->client_state = $payload['client_state'];
-                                $call->save();
+                            if (Functions::not_empty($this->call)) {
+                                $this->call->client_state = $payload['client_state'];
+                                $this->call->save();
                             }
                         }
                         break;
                     case 'call.answered':
-                        if (Functions::not_empty($call)) {
+                        if (Functions::not_empty($this->call)) {
                             $activeCall = $user->getActiveCall();
 
-                            $call->client_state = $payload['client_state'];
-                            $call->status = 'active';
-                            $call->save();
-                            $call->refresh();
+                            $this->call->client_state = $payload['client_state'];
+                            $this->call->status = 'active';
+                            $this->call->save();
+                            $this->call->refresh();
                         }
                         break;
                     case 'streaming.started':
-                        if (Functions::not_empty($call)) {
+                        if (Functions::not_empty($this->call)) {
                             $activeCall = $user->getActiveCall();
 
-                            $call->stream_id = $payload['stream_id'];
-                            $call->save();
-                            $call->refresh();
+                            $this->call->stream_id = $payload['stream_id'];
+                            $this->call->save();
+                            $this->call->refresh();
                         }
                         break;
                     case 'streaming.failed':
                     case 'streaming.stopped':
                         $activeCall = $user->getActiveCall();
 
-                        $call->stream_id = null;
+                        $this->call->stream_id = null;
                         if ($eventType == 'streaming.failed') {
-                            $call->status = 'disconnected';
+                            $this->call->status = 'disconnected';
                         }
 
-                        $call->save();
+                        $this->call->save();
 
-                        if ($activeCall && $activeCall->call_control_id == $call->call_control_id) {
-                            $data = app(TelnyxController::class)->terminateCall($user, $call);
+                        if ($activeCall && $activeCall->call_control_id == $this->call->call_control_id) {
+                            $data = app(TelnyxController::class)->terminateCall($user, $this->call);
                         }
 
                         break;
                     case 'call.hangup':
-                        if (Functions::not_empty($call)) {
+                        if (Functions::not_empty($this->call)) {
                             $activeCall = $user->getActiveCall();
                             $cause = $payload['hangup_cause'];
                             if ($cause == 'normal_clearing') {
-                                if ($call->status != 'active' && $call->status != 'disconnected') {
-                                    $call->status = 'declined';
-                                } else if ($call->status == 'active') {
-                                    $call->status = 'completed';
+                                if ($this->call->status != 'active' && $this->call->status != 'disconnected') {
+                                    $this->call->status = 'declined';
+                                } else if ($this->call->status == 'active') {
+                                    $this->call->status = 'completed';
                                 }
                             } else if ($cause == 'originator_cancel') {
-                                if ($call->direction == 'outbound') {
-                                    $call->status = 'declined';
+                                if ($this->call->direction == 'outbound') {
+                                    $this->call->status = 'declined';
                                 } else {
-                                    $call->status = 'missed';
+                                    $this->call->status = 'missed';
                                 }
                             } else if ($cause == 'user_busy') {
-                                $call->status = 'not attended';
+                                $this->call->status = 'not attended';
                             } else if ($cause == 'call_rejected') {
-                                if ($call->status == 'active') {
-                                    $call->status = 'completed';
+                                if ($this->call->status == 'active') {
+                                    $this->call->status = 'completed';
                                     // Make Call Information API Request
-                                } else if ($call->status != 'active' && $call->status != 'disconnected') {
-                                    $call->status = 'declined';
+                                } else if ($this->call->status != 'active' && $this->call->status != 'disconnected') {
+                                    $this->call->status = 'declined';
                                 }
                             } else {
-                                $call->status = 'completed';
+                                $this->call->status = 'completed';
                             }
 
                             if (isset($payload['end_time'])) {
-                                $call->call_end_time = Carbon::parse($payload['end_time'])->toDateTimeString();
+                                $this->call->call_end_time = Carbon::parse($payload['end_time'])->toDateTimeString();
                             } else {
-                                $call->call_end_time = Carbon::now()->toDateTimeString();
+                                $this->call->call_end_time = Carbon::now()->toDateTimeString();
                             }
 
-                            $call->save();
+                            $this->call->save();
                         }
 
                         break;
                     case 'call.cost':
                         if (isset($payload) && isset($payload['total_cost'])) {
-                            $call->actual_cost = $payload['total_cost'];
-                            $call->save();
+                            $this->call->actual_cost = $payload['total_cost'];
+                            $this->call->save();
                         }
                     case "call.recording.saved":
-                        if (Functions::not_empty($call)) {
-                            $filename = $call->recording_id;
+                        if (Functions::not_empty($this->call)) {
+                            $filename = $this->call->recording_id;
                             if (Functions::not_empty($filename)) {
                                 $filename = $filename . uniqid() . '.mp3';
                                 $urls = $payload['recording_urls'];
                                 $count = 1;
                                 foreach ($urls as $type => $url) {
                                     if ($type == 'mp3') {
-                                        $this->downloadAndSaveMp3($url, $filename, $call, $count);
+                                        $this->downloadAndSaveMp3($url, $filename, $this->call, $count);
                                         $count++;
                                     }
                                 }
-                                $call->recording_available = 1;
-                                $call->save();
+                                $this->call->recording_available = 1;
+                                $this->call->save();
                             }
                         }
                         break;
@@ -307,7 +308,7 @@ class TelnyxWebhooksController extends Controller
             $data['type'] = "audio";
 
             $attachment = new Attachment($data);
-            $call->attachments()->save($attachment);
+            $this->call->attachments()->save($attachment);
             $attachment->save();
         } else {
             return false;
