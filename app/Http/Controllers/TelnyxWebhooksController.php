@@ -243,7 +243,7 @@ class TelnyxWebhooksController extends Controller
                             $this->call->save();
                         }
                     case "call.recording.saved":
-                        logger($this->call);
+                        logger(['recording saved: ' => $this->call]);
                         if (Functions::not_empty($this->call)) {
                             $filename = $this->call->recording_id;
                             if (Functions::not_empty($filename)) {
