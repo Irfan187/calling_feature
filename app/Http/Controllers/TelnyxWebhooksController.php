@@ -249,6 +249,7 @@ class TelnyxWebhooksController extends Controller
                             if (Functions::not_empty($filename)) {
                                 $filename = $filename . uniqid() . '.mp3';
                                 $urls = $payload['recording_urls'];
+                                logger($urls);
                                 $count = 1;
                                 foreach ($urls as $type => $url) {
                                     if ($type == 'mp3') {
