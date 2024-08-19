@@ -49,9 +49,6 @@ class TelnyxWebhooksController extends Controller
                     $call_control_id = $payload['call_control_id'];
                     $call = Call::where('call_control_id', $call_control_id)->get()->first();
                 }
-                logger(['webhookData' => $webhookData]);
-                logger(['payload' => $payload]);
-                return;
                 switch ($eventType) {
                     case 'call.initiated':
                         $direction = $payload['direction'];
@@ -135,6 +132,7 @@ class TelnyxWebhooksController extends Controller
                                 //     DB::table('contacts_backup')->insert($contactData);
                                 // }
                             }
+                            logger(['data before call']);
                             $call = new Call([
                                 'user_id' => $user->id,
                                 'contact_id' => $contact->id,
