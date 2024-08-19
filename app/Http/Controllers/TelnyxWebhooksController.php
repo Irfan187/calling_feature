@@ -99,10 +99,10 @@ class TelnyxWebhooksController extends Controller
                                     $contactData['id'] = $contact->id;
                                     unset($contactData['contact_phone_id']);
 
-                                    $backupExists = DB::table('contacts_backup')->where('user_id', $user->id)->where('phone', $from)->exists();
-                                    if (!$backupExists) {
-                                        DB::table('contacts_backup')->insert($contactData);
-                                    }
+                                    // $backupExists = DB::table('contacts_backup')->where('user_id', $user->id)->where('phone', $from)->exists();
+                                    // if (!$backupExists) {
+                                    //     DB::table('contacts_backup')->insert($contactData);
+                                    // }
                                 }
                             } else {
                                 //addition
