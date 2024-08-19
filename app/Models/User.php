@@ -20,7 +20,7 @@ class User extends Authenticatable
     protected $casts = ['email_verified_at' => 'datetime', 'id' => 'integer', 'has_new_message' => 'integer', 'balance' => 'float', 'attempting_auto_reload' => 'integer', 'brand_id' => 'integer'];
 
 
-    protected $appends = ['profile_photo_url', 'type', 'subscription'];
+    protected $appends = ['type', 'subscription'];
 
     protected static function booted()
     {

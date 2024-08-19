@@ -33,9 +33,8 @@ class TelnyxWebhooksController extends Controller
             if (Functions::is_empty($user)) {
                 return false;
             }
-            logger($request->all());
+            logger($request->exists('data'));
             logger(["user" => $user]);
-            return;
             if ($request->exists('data')) {
                 $webhookData = $request->all()['data'];
                 $eventType = $webhookData['event_type'];
