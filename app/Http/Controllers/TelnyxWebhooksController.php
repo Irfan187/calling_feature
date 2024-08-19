@@ -240,7 +240,7 @@ class TelnyxWebhooksController extends Controller
                         break;
                     case 'call.cost':
                         if (isset($payload) && isset($payload['total_cost'])) {
-                            $this->call->actual_cost = $payload['total_cost'];
+                            $this->call->cost = $payload['total_cost'];
                             $this->call->save();
                         }
                     case "call.recording.saved":
