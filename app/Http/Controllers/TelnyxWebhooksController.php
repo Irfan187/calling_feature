@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Http;
 
 class TelnyxWebhooksController extends Controller
 {
-    public function callback(Request $request, $uuid)
+    public function callControlWebhook(Request $request, $uuid)
     {
         try {
             Telnyx::setApiKey(config('services.telnyx.api_key'));
@@ -54,7 +54,7 @@ class TelnyxWebhooksController extends Controller
                 switch ($eventType) {
                     case 'call.initiated':
                         $direction = $payload['direction'];
-                        if ($direction == 'incoming') {
+                        if ($direction == 'outgoing') {
                             $activeCall = $user->hasActiveCall();
                             $from = Functions::format_phone_number($payload['from']);
                             $to = Functions::format_phone_number($payload['to']);
