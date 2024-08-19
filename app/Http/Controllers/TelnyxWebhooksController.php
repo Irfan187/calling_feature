@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Http;
 
 class TelnyxWebhooksController extends Controller
 {
-    public function callControlWebhook(Request $request, $uuid)
+    public function callControlWebhook(Request $request)
     {
         try {
             Telnyx::setApiKey(config('services.telnyx.api_key'));
