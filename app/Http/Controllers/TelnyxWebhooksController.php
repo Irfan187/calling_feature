@@ -152,7 +152,6 @@ class TelnyxWebhooksController extends Controller
                             ]);
 
                             $this->call->save();
-                            logger(['call initiated' => $this->call]);
                             if ($activeCall) {
                                 break;
                             }
@@ -244,6 +243,7 @@ class TelnyxWebhooksController extends Controller
                             $this->call->save();
                         }
                     case "call.recording.saved":
+                        logger($this->call);
                         if (Functions::not_empty($this->call)) {
                             $filename = $this->call->recording_id;
                             if (Functions::not_empty($filename)) {
@@ -266,15 +266,15 @@ class TelnyxWebhooksController extends Controller
                         break;
                 }
 
-                logger("==========================================================================");
-                logger("Telnyx Call Control Webhook Start");
-                logger("==========================================================================");
+                // logger("==========================================================================");
+                // logger("Telnyx Call Control Webhook Start");
+                // logger("==========================================================================");
 
-                logger(json_encode($webhookData));
+                // logger(json_encode($webhookData));
 
-                logger("==========================================================================");
-                logger("Telnyx Call Control Webhook End");
-                logger("==========================================================================");
+                // logger("==========================================================================");
+                // logger("Telnyx Call Control Webhook End");
+                // logger("==========================================================================");
             }
         } catch (Exception $e) {
             logger($e->getMessage() . ' - ' . $e->getCode() . ' - ' . $e->getLine() . ' - ' . $e->getTraceAsString());
