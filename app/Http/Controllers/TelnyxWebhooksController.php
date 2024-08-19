@@ -50,7 +50,7 @@ class TelnyxWebhooksController extends Controller
                     $call = Call::where('call_control_id', $call_control_id)->get()->first();
                 }
 
-                logger(['direction' => $payload['direction']]);
+                logger(['payload' => $payload]);
                 switch ($eventType) {
                     case 'call.initiated':
                         $direction = $payload['direction'];
