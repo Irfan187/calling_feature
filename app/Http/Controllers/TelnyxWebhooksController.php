@@ -53,7 +53,7 @@ class TelnyxWebhooksController extends Controller
                 switch ($eventType) {
                     case 'call.initiated':
                         $direction = $payload['direction'];
-                        if ($direction == 'incoming') {
+                        if ($direction == 'incomming') {
                             $activeCall = $user->hasActiveCall();
                             $from = Functions::format_phone_number($payload['from']);
                             $to = Functions::format_phone_number($payload['to']);
