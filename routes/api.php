@@ -27,6 +27,9 @@ Route::post('/webhook', [TelnyxWebhooksController::class, 'callControlWebhook'])
 Route::post('/start-call-recording', [TelnyxController::class, 'startCallRecording']);
 Route::post('/end-call-recording', [TelnyxController::class, 'endCallRecording']);
 
+Route::post('/answer-call', [TelnyxController::class, 'answerCall']);
+
+
 
 
 

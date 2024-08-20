@@ -94,4 +94,10 @@ class TelnyxController extends Controller
         logger($result);
         return $result['data'];
     }
+
+    public function answerCall(Request $request){
+        $call_control_id = 'v3:VSuhDkJKpB2keH63Vxa2K1gcPQ8XIUt4XFzoptWLw9qFGOInuTRyqg';
+        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer');
+        logger(['answer api call response : '=> json_decode($response->getBody(), true)]);
+    }
 }

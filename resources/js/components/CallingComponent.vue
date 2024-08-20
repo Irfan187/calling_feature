@@ -15,6 +15,8 @@
         <button type="button" class="btn btn-primary" @click="startCallRecording">start Call Recording</button>
         <br><br>
         <button type="button" class="btn btn-primary" @click="endCallRecording">end Call Recording</button>
+        <br><br>
+        <button type="button" class="btn btn-primary" @click="answerCall">Answer a call</button>
 
         <div class="my-3">
             <div>{{ callStatus }}</div>
@@ -98,6 +100,19 @@ const endCallRecording = async () => {
 };
 
 /**  Call Recording Feature End */
+
+const answerCall = async () => {
+    const data = {
+        to: to.value,
+        from: from.value,
+        call_control_id: call_control_id.value
+    };
+    try {
+        await axios.post('/api/answer-call', data);
+    } catch (error) {
+        console.error('Error making call:', error);
+    }
+};
 
 const initializeWebSocketAndAudio = () => {
     if (!audioContext) {

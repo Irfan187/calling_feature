@@ -29,12 +29,12 @@ class TelnyxWebhooksController extends Controller
         try {
             Telnyx::setApiKey(config('services.telnyx.api_key'));
             $webhookEvent = TelnyxWebhook::constructFromRequest(config('services.telnyx.public_key'));
-
+            logger(['webhooks',$request->all()]);
             $user = User::first();
             if (Functions::is_empty($user)) {
                 return false;
             }
-           
+
             if ($request->exists('data')) {
                 $webhookData = $request->all()['data'];
                 $eventType = $webhookData['event_type'];
@@ -45,7 +45,7 @@ class TelnyxWebhooksController extends Controller
                 }
 
                 $call_control_id = null;
-                
+
                 if (isset($payload) && isset($payload['call_control_id'])) {
                     $call_control_id = $payload['call_control_id'];
                     $this->call = Call::where('call_control_id', $call_control_id)->get()->first();
@@ -53,7 +53,7 @@ class TelnyxWebhooksController extends Controller
                 switch ($eventType) {
                     case 'call.initiated':
                         $direction = $payload['direction'];
-                        if ($direction == 'outgoing') {
+                        if ($direction == 'incoming') {
                             $activeCall = $user->hasActiveCall();
                             $from = Functions::format_phone_number($payload['from']);
                             $to = Functions::format_phone_number($payload['to']);
@@ -157,10 +157,103 @@ class TelnyxWebhooksController extends Controller
                             }
                         }
                         if ($direction == 'outgoing') {
-                            if (Functions::not_empty($this->call)) {
-                                $this->call->client_state = $payload['client_state'];
-                                $this->call->save();
+                            $from = Functions::format_phone_number($payload['from']);
+                            $to = Functions::format_phone_number($payload['to']);
+                            $phone = PhoneNumber::where('phone_number', $from)->where('user_id', $user->id)->get()->first();
+
+                            // $contact_phone = ContactPhone::where('phone', $from)->first();
+
+
+                            $contact_phone = ContactPhone::where('phone', $to)->first();
+                            $code = Functions::get_area_code_from_number($contact_phone->phone);
+                            $area = AreaCode::where('code', $code)->first();
+                            if (Functions::is_empty($area)) {
+                                $timezone = 'America/New_York';
+                            } else {
+                                $timezone = $area->tzn;
+                                if (Functions::is_empty($timezone)) {
+                                    $timezone = 'America/New_York';
+                                }
                             }
+                            if (!empty($contact_phone)) {
+                                $contact = Contact::where('contact_phone_id', $contact_phone->id)->where('user_id', $user->id)->first();
+
+                                if (Functions::is_empty($contact_phone->timezone)) {
+                                    $contact_phone->update([
+                                        'timezone' => $timezone  // if contact_phone timezone is empty then update it
+                                    ]);
+                                }
+
+                                if (Functions::is_empty($contact)) {
+                                    $contactData = [
+                                        'user_id' => $user->id,
+                                        'first_name' => $from,
+                                        'contact_phone_id' => $contact_phone->id
+                                    ];
+                                    $contact = new Contact($contactData);
+                                    $contact->save();
+
+                                    $user->update([
+                                        'contacts_count' => $user->contacts_count + 1
+                                    ]);
+
+                                    $contactData['phone'] = $from;
+                                    $contactData['id'] = $contact->id;
+                                    unset($contactData['contact_phone_id']);
+
+                                    // $backupExists = DB::table('contacts_backup')->where('user_id', $user->id)->where('phone', $from)->exists();
+                                    // if (!$backupExists) {
+                                    //     DB::table('contacts_backup')->insert($contactData);
+                                    // }
+                                }
+                            } else {
+                                //addition
+                                $contact_phone = new ContactPhone([
+                                    'phone' => $from,
+                                    'timezone' => $timezone
+                                ]);
+                                $contact_phone->save();
+
+                                $contactData = [
+                                    'user_id' => $user->id,
+                                    'first_name' => $from,
+                                    'contact_phone_id' => $contact_phone->id,
+                                ];
+                                $contact = new Contact($contactData);
+                                $contact->save();
+
+                                $user->update([
+                                    'contacts_count' => $user->contacts_count + 1
+                                ]);
+
+                                $contactData['phone'] = $from;
+                                $contactData['id'] = $contact->id;
+                                unset($contactData['contact_phone_id']);
+
+                                // $backupExists = DB::table('contacts_backup')->where('user_id', $user->id)->where('phone', $from)->exists();
+                                // if (!$backupExists) {
+                                //     DB::table('contacts_backup')->insert($contactData);
+                                // }
+                            }
+                            logger(['data before call']);
+                            $this->call = new Call([
+                                'user_id' => $user->id,
+                                'contact_id' => $contact->id,
+                                'phone_number_id' => $phone->id,
+
+                                'call_control_id' => $payload['call_control_id'],
+                                'call_leg_id' => $payload['call_leg_id'],
+                                'call_session_id' => $payload['call_session_id'],
+                                'client_state' => $payload['client_state'],
+                                'call_duration' => 0,
+
+                                'status' => $activeCall ? 'missed' : 'receiving',
+                                'direction' => 'inbound',
+                                'call_start_time' => Carbon::now()->toDateTimeString(),
+                                'last_outbound_call_activity' => Carbon::now()->toDateTimeString(),
+                            ]);
+
+                            $this->call->save();
                         }
                         break;
                     case 'call.answered':
@@ -244,8 +337,11 @@ class TelnyxWebhooksController extends Controller
                         }
                     case "call.recording.saved":
                         logger(['recording saved: ' => $this->call]);
-                        $this->call->recording_id = $payload['recording_id'];
-                        $this->call->save();
+                        if (isset($payload['recording_id'])) {
+                            $this->call->recording_id = $payload['recording_id'];
+                            $this->call->save();
+                        }
+
                         if (Functions::not_empty($this->call)) {
                             $filename = $this->call->recording_id;
                             if (Functions::not_empty($filename)) {
