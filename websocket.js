@@ -126,6 +126,7 @@ wsServer.on("request", function (request) {
         } else if (connection == telnyxClient) {
             /* Forward all messages to client */
             let eventData = JSON.parse(data.utf8Data);
+            console.log("event data",eventData);
             if (eventData.event == "media") {
                 const chunk = Buffer.from(eventData.media.payload, "base64");
                 const sequenceNumber = eventData.sequence_number;
