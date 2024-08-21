@@ -268,7 +268,7 @@ class TelnyxWebhooksController extends Controller
                                 'call_duration' => 0,
 
                                 'status' => $activeCall ? 'missed' : 'receiving',
-                                'direction' => 'inbound',
+                                'direction' => 'outbound',
                                 'call_start_time' => Carbon::now()->toDateTimeString(),
                                 'last_outbound_call_activity' => Carbon::now()->toDateTimeString(),
                             ]);
@@ -437,7 +437,15 @@ class TelnyxWebhooksController extends Controller
     }
 
     public function answerCall($call_control_id){
-        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer');
+        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer',
+        [
+            'json' => [
+                'stream_url' => 'wss://callingfeature.scrumad.com:3001',
+                'stream_track' => 'inbound_track',
+                'preferred_codecs' => 'PCMU'
+            ],
+        ]
+    );
         logger(['answer api call response : '=> json_decode($response->getBody(), true)]);
     }
 }
