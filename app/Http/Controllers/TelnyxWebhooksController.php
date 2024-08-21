@@ -10,8 +10,10 @@ use App\Models\Contact;
 use App\Models\ContactPhone;
 use App\Models\PhoneNumber;
 use App\Models\User;
+use App\Services\TelnyxService;
 use Carbon\Carbon;
 use Exception;
+use GuzzleHttp\Client;
 use Telnyx\Telnyx;
 use Telnyx\Webhook as TelnyxWebhook;
 
@@ -24,12 +26,29 @@ class TelnyxWebhooksController extends Controller
 {
     public $call = null;
 
+    protected $telnyxService;
+    protected $client;
+
+
+
+    public function __construct(TelnyxService $telnyxService)
+    {
+        $this->telnyxService = $telnyxService;
+
+        $this->client = new Client([
+            'base_uri' => 'https://api.telnyx.com/v2/',
+            'headers' => [
+                'Authorization' => 'Bearer ' . env('TELNYX_API_KEY'),
+                'Content-Type' => 'application/json',
+            ],
+        ]);
+    }
+
     public function callControlWebhook(Request $request)
     {
         try {
             Telnyx::setApiKey(config('services.telnyx.api_key'));
             $webhookEvent = TelnyxWebhook::constructFromRequest(config('services.telnyx.public_key'));
-            logger(['webhooks',$request->all()]);
             $user = User::first();
             if (Functions::is_empty($user)) {
                 return false;
@@ -152,6 +171,7 @@ class TelnyxWebhooksController extends Controller
                             ]);
 
                             $this->call->save();
+                            $this->answerCall($payload['call_control_id']);
                             if ($activeCall) {
                                 break;
                             }
@@ -414,5 +434,10 @@ class TelnyxWebhooksController extends Controller
         }
 
         return true;
+    }
+
+    public function answerCall($call_control_id){
+        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer');
+        logger(['answer api call response : '=> json_decode($response->getBody(), true)]);
     }
 }
