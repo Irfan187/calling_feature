@@ -172,6 +172,7 @@ class TelnyxWebhooksController extends Controller
 
                             $this->call->save();
                             $this->answerCall($payload['call_control_id']);
+                            $this->createConference($payload['call_control_id']);
                             if ($activeCall) {
                                 break;
                             }
@@ -436,16 +437,32 @@ class TelnyxWebhooksController extends Controller
         return true;
     }
 
-    public function answerCall($call_control_id){
-        $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer',
-        [
-            'json' => [
-                'stream_url' => 'wss://callingfeature.scrumad.com:3001',
-                'stream_track' => 'inbound_track',
-                'preferred_codecs' => 'PCMU'
-            ],
-        ]
-    );
-        logger(['answer api call response : '=> json_decode($response->getBody(), true)]);
+    public function answerCall($call_control_id)
+    {
+        $response = $this->client->post(
+            'https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer',
+            [
+                'json' => [
+                    'stream_url' => 'wss://callingfeature.scrumad.com:3001',
+                    'stream_track' => 'inbound_track',
+                    'preferred_codecs' => 'PCMU'
+                ],
+            ]
+        );
+        logger(['answer api call response : ' => json_decode($response->getBody(), true)]);
+    }
+
+    public function createConference($call_control_id)
+    {
+        $response = $this->client->post(
+            'https://api.telnyx.com/v2/conferences',
+            [
+                'json' => [
+                    "call_control_id" => $call_control_id,
+                    "name" => "Business",
+                ],
+            ]
+        );
+        logger(['conference call response : ' => json_decode($response->getBody(), true)]);
     }
 }
