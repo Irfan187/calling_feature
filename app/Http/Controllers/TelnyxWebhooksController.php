@@ -460,6 +460,7 @@ class TelnyxWebhooksController extends Controller
                 'json' => [
                     "call_control_id" => $call_control_id,
                     "name" => "Business",
+                    "start_conference_on_create" => false,
                 ],
             ]
         );
