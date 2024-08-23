@@ -130,6 +130,7 @@ const createConference = async () => {
     try {
         await axios.post('/api/conference-create', data)
             .then(async (response) => {
+                console.log(response);
                 conferenceLink.value = '/api/join/conference/'+response+'/'+call_control_id.value;
                 conference_created.value = true;
             })
