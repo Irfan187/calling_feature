@@ -119,7 +119,10 @@ class TelnyxController extends Controller
         return $res['data']['id'];
     }
 
-    public function joinConference($id,$call_control_id){
+    public function joinConference(Request $request){
+
+        $id = $request->conference_id;
+        $call_control_id = $request->call_control_id;
         $response = $this->client->post(
             'https://api.telnyx.com/v2/conferences/'.$id.'/actions/join',
             [

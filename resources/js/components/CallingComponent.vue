@@ -20,7 +20,7 @@
         <div class="">
             <h2 class="text-center">Conference Call</h2>
             <button type="button" class="btn btn-primary" @click="createConference">Create Conference</button><br><br>
-            <a v-show="conference_created" :href="conferenceLink">Join Conference</a>
+            <button v-show="conference_created" @click="joinConference">Join Conference</button>
         </div>
 
         <div class="my-3">
@@ -46,8 +46,9 @@ let ws = null;
 let audioContext = null;
 let recordingInterval;
 let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
-const conferenceLink = ref();
+
 const conference_created = ref(false);
+const conference_id = ref();
 
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
@@ -130,8 +131,8 @@ const createConference = async () => {
     try {
         await axios.post('/api/conference-create', data)
             .then(async (response) => {
-                console.log(response);
-                conferenceLink.value = '/api/join/conference/'+response.data+'/'+call_control_id.value;
+                
+                conference_id.value = response.data;
                 conference_created.value = true;
             })
             .catch(async (error) => {
@@ -142,6 +143,27 @@ const createConference = async () => {
         console.error('Error making call:', error);
     }
 }
+
+const joinConference = async () => {
+    const data = {
+        call_control_id: call_control_id.value,
+        conference_id: conference_id.value
+    };
+    try {
+        await axios.post('/api/join/conference', data)
+            .then(async (response) => {
+                console.log(response);
+            })
+            .catch(async (error) => {
+                
+            });
+
+    } catch (error) {
+        console.error('Error making call:', error);
+    }
+}
+
+
 
 /** Conference call logic end */
 
