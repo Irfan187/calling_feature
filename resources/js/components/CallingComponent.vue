@@ -17,9 +17,9 @@
         <button type="button" class="btn btn-primary" @click="endCallRecording">end Call Recording</button>
         <br><br>
         <button type="button" class="btn btn-primary" @click="answerCall">Answer a call</button>
-        <div class="card">
+        <div class="">
             <h2 class="text-center">Conference Call</h2>
-            <button type="button" class="btn btn-primary" @click="createConference">Create Conference</button>
+            <button type="button" class="btn btn-primary" @click="createConference">Create Conference</button><br><br>
             <a v-show="conference_created" href="{{ conferenceLink.value }}">Join Conference</a>
         </div>
 
