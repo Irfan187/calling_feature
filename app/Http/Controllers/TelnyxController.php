@@ -116,7 +116,7 @@ class TelnyxController extends Controller
         );
         $res = json_decode($response->getBody(), true);
         logger(['createConference' => $res]);
-        return $res['id'];
+        return $res['data']['id'];
     }
 
     public function joinConference($id,$call_control_id){
