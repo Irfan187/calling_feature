@@ -129,5 +129,6 @@ class TelnyxController extends Controller
             ]
         );
         $res = json_decode($response->getBody(), true);
+        return $res;
     }
 }
