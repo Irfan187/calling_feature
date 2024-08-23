@@ -100,4 +100,33 @@ class TelnyxController extends Controller
         $response = $this->client->post('https://api.telnyx.com/v2/calls/' . $call_control_id . '/actions/answer');
         logger(['answer api call response : '=> json_decode($response->getBody(), true)]);
     }
+
+    public function createConference(Request $request)
+    {
+        $call_control_id = $request->call_control_id;
+        $response = $this->client->post(
+            'https://api.telnyx.com/v2/conferences',
+            [
+                'json' => [
+                    "call_control_id" => $call_control_id,
+                    "name" => "Business",
+                    "start_conference_on_create" => false,
+                ],
+            ]
+        );
+        $res = json_decode($response->getBody(), true);
+        return $res['id'];
+    }
+
+    public function joinConference($id,$call_control_id){
+        $response = $this->client->post(
+            'https://api.telnyx.com/v2/conferences/'.$id.'/actions/join',
+            [
+                'json' => [
+                    "call_control_id" => $call_control_id,
+                ],
+            ]
+        );
+        $res = json_decode($response->getBody(), true);
+    }
 }

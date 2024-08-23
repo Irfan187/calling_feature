@@ -29,6 +29,11 @@ Route::post('/end-call-recording', [TelnyxController::class, 'endCallRecording']
 
 Route::post('/answer-call', [TelnyxController::class, 'answerCall']);
 
+Route::post('conference-create', [TelnyxController::class, 'createConference']);
+Route::get('join/conference/{id}/{call_id}', [TelnyxController::class, 'joinConference']);
+
+
+
 
 
 

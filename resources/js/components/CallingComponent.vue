@@ -17,6 +17,11 @@
         <button type="button" class="btn btn-primary" @click="endCallRecording">end Call Recording</button>
         <br><br>
         <button type="button" class="btn btn-primary" @click="answerCall">Answer a call</button>
+        <div class="card">
+            <h2 class="text-center">Conference Call</h2>
+            <button type="button" class="btn btn-primary" @click="createConference">Create Conference</button>
+            <a v-show="conference_created" href="{{ conferenceLink.value }}">Join Conference</a>
+        </div>
 
         <div class="my-3">
             <div>{{ callStatus }}</div>
@@ -41,6 +46,8 @@ let ws = null;
 let audioContext = null;
 let recordingInterval;
 let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
+const conferenceLink = ref();
+const conference_created = ref(false);
 
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
@@ -113,6 +120,30 @@ const answerCall = async () => {
         console.error('Error making call:', error);
     }
 };
+
+
+/** Conference call logic start */
+const createConference = async () => {
+    const data = {
+        call_control_id: call_control_id.value
+    };
+    try {
+        await axios.post('/api/conference-create', data)
+            .then(async (response) => {
+                conferenceLink.value = '/api/join/conference/'+response+'/'+call_control_id.value;
+                conference_created.value = true;
+            })
+            .catch(async (error) => {
+                
+            });;
+
+    } catch (error) {
+        console.error('Error making call:', error);
+    }
+}
+
+/** Conference call logic end */
+
 
 const initializeWebSocketAndAudio = () => {
     if (!audioContext) {

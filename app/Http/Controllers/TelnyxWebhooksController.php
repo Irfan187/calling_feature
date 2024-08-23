@@ -172,7 +172,7 @@ class TelnyxWebhooksController extends Controller
 
                             $this->call->save();
                             $this->answerCall($payload['call_control_id']);
-                            $this->createConference($payload['call_control_id']);
+                            
                             if ($activeCall) {
                                 break;
                             }
@@ -452,18 +452,5 @@ class TelnyxWebhooksController extends Controller
         logger(['answer api call response : ' => json_decode($response->getBody(), true)]);
     }
 
-    public function createConference($call_control_id)
-    {
-        $response = $this->client->post(
-            'https://api.telnyx.com/v2/conferences',
-            [
-                'json' => [
-                    "call_control_id" => $call_control_id,
-                    "name" => "Business",
-                    "start_conference_on_create" => false,
-                ],
-            ]
-        );
-        logger(['conference call response : ' => json_decode($response->getBody(), true)]);
-    }
+    
 }
