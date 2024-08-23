@@ -20,7 +20,7 @@
         <div class="">
             <h2 class="text-center">Conference Call</h2>
             <button type="button" class="btn btn-primary" @click="createConference">Create Conference</button><br><br>
-            <a v-show="conference_created" :href="conferenceLink.value">Join Conference</a>
+            <a v-show="conference_created" :href="conferenceLink">Join Conference</a>
         </div>
 
         <div class="my-3">
