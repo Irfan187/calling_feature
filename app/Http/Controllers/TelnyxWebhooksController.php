@@ -178,6 +178,7 @@ class TelnyxWebhooksController extends Controller
                             }
                         }
                         if ($direction == 'outgoing') {
+                            $activeCall = $user->hasActiveCall();
                             $from = Functions::format_phone_number($payload['from']);
                             $to = Functions::format_phone_number($payload['to']);
                             $phone = PhoneNumber::where('phone_number', $from)->where('user_id', $user->id)->get()->first();
