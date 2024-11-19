@@ -31,11 +31,29 @@ self.onmessage = async (event) => {
             // Convert to Int16 PCM
             const pcmData = new Int16Array(processableData.buffer);
 
+            console.log(
+                "Input PCM Data (first 10 samples):",
+                pcmData.slice(0, 10)
+            );
+            console.log("Input PCM Data Length:", pcmData.length);
+
             // Resample to 8 kHz
             const resampledPCM = resample(pcmData, 48000, 8000);
 
+            console.log(
+                "Resampled PCM Data (first 10 samples):",
+                resampledPCM.slice(0, 10)
+            );
+            console.log("Resampled PCM Data Length:", resampledPCM.length);
+
             // Encode to PCMU
             const pcMuData = encodeSamplesToPCMU(resampledPCM);
+            
+            console.log(
+                "Encoded PCMU Data (first 10 samples):",
+                pcMuData.slice(0, 10)
+            );
+            console.log("Encoded PCMU Data Length:", pcMuData.length);
 
             // Slice into 100 ms packets
             const packets = sliceIntoPackets(pcMuData, 800); // 800 samples at 8 kHz

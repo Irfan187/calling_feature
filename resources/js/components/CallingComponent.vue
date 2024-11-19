@@ -91,6 +91,8 @@ const createRTPPacket = (payload) => {
     console.log("RTP Packet Length:", rtpPacket.length);
     console.log("Payload Length:", payload.length);
 
+    console.log("RTP Payload (first 10 bytes):", payload.slice(0, 10));
+    console.log("RTP Payload Length:", payload.length);
     return rtpPacket;
 };
 

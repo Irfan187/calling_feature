@@ -14,7 +14,6 @@ import { connect } from 'extendable-media-recorder-wav-encoder';
 import { ref } from 'vue';
 
 let mediaRecorder;
-let audioChunks = [];
 let audioContext = null;
 let recordingInterval;
 let isRecording = ref(false);
@@ -22,55 +21,6 @@ let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { 
 
 let sequenceNumber = 0;
 let timestamp = 0;
-
-const createRTPPacket = (payload) => {
-    const HEADER_SIZE = 12;
-    const rtpPacket = new Uint8Array(HEADER_SIZE + payload.length);
-
-    const version = 2;
-    const padding = 0;
-    const extension = 0;
-    const csrcCount = 0;
-    const marker = 0;
-    const payloadType = 0;
-    const ssrc = 12345;
-
-    rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
-
-    rtpPacket[1] = (marker << 7) | payloadType;
-
-    rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
-    rtpPacket[3] = sequenceNumber & 0xff;
-    sequenceNumber = (sequenceNumber + 1) % 65536;
-
-    rtpPacket[4] = (timestamp >> 24) & 0xff;
-    rtpPacket[5] = (timestamp >> 16) & 0xff;
-    rtpPacket[6] = (timestamp >> 8) & 0xff;
-    rtpPacket[7] = timestamp & 0xff;
-    timestamp += 160;
-
-    rtpPacket[8] = (ssrc >> 24) & 0xff;
-    rtpPacket[9] = (ssrc >> 16) & 0xff;
-    rtpPacket[10] = (ssrc >> 8) & 0xff;
-    rtpPacket[11] = ssrc & 0xff;
-
-    rtpPacket.set(payload, HEADER_SIZE);
-
-    return rtpPacket;
-};
-
-const encodeRTPToBase64 = (rtpPacket) => {
-    return btoa(String.fromCharCode(...rtpPacket));
-};
-
-audioEncoder.onmessage = async (event) => {
-    const { command, data } = event.data;
-    const rtpPacket = createRTPPacket(data);
-    const base64Payload = encodeRTPToBase64(rtpPacket);
-    if (command === 'processed') {
-        await playAudio(base64Payload);
-    }
-};
 
 const handleStartEvent = () => {
     if (!audioContext) {
@@ -121,40 +71,94 @@ const stopRecording = () => {
     clearInterval(recordingInterval);
 }
 
-const playAudio = async (base64Data) => {
-    return new Promise((resolve, reject) => {
-        try {
-            // Step 1: Decode base64 data to binary data
-            const binaryString = atob(base64Data);
-            const len = binaryString.length;
-            const arrayBuffer = new ArrayBuffer(len);
-            const uint8Array = new Uint8Array(arrayBuffer);
+const createRTPPacket = (payload) => {
+    const HEADER_SIZE = 12;
+    const rtpPacket = new Uint8Array(HEADER_SIZE + payload.length);
 
-            for (let i = 0; i < len; i++) {
-                uint8Array[i] = binaryString.charCodeAt(i);
-            }
+    const version = 2;
+    const padding = 0;
+    const extension = 0;
+    const csrcCount = 0;
+    const marker = 0;
+    const payloadType = 0; // PCMU
+    const ssrc = 12345; // Example SSRC
 
-            // Step 2: Decode the audio data
-            audioContext.decodeAudioData(arrayBuffer, (audioBuffer) => {
-                // Step 3: Play the audio
-                const source = audioContext.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioContext.destination);
-                source.start(0);
+    // RTP Header
+    rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
+    rtpPacket[1] = (marker << 7) | payloadType;
 
-                // Step 4: Resolve the promise when the audio finishes playing
-                source.onended = () => {
-                    resolve();
-                };
-            }, (error) => {
-                reject('Error decoding audio data: ' + error);
-            });
-        } catch (error) {
-            reject('Error processing audio data: ' + error);
-        }
-    });
+    rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
+    rtpPacket[3] = sequenceNumber & 0xff;
+    sequenceNumber = (sequenceNumber + 1) % 65536;
+
+    rtpPacket[4] = (timestamp >> 24) & 0xff;
+    rtpPacket[5] = (timestamp >> 16) & 0xff;
+    rtpPacket[6] = (timestamp >> 8) & 0xff;
+    rtpPacket[7] = timestamp & 0xff;
+    timestamp += 800; // Increment for 100 ms at 8 kHz
+
+    rtpPacket[8] = (ssrc >> 24) & 0xff;
+    rtpPacket[9] = (ssrc >> 16) & 0xff;
+    rtpPacket[10] = (ssrc >> 8) & 0xff;
+    rtpPacket[11] = ssrc & 0xff;
+
+    // Payload
+    rtpPacket.set(payload, HEADER_SIZE);
+
+    return rtpPacket;
 };
 
+const encodeRTPToBase64 = (rtpPacket) => {
+    const base64 = btoa(String.fromCharCode(...rtpPacket));
+    console.log("Base64 Encoded RTP Length:", base64.length);
+    return base64;
+};
 
+audioEncoder.onmessage = async (event) => {
+    const { command, data } = event.data;
+
+    if (command === "processed") {
+        for (const pcmuPacket of data) {
+            const pcmData = decodePCMUToPCM(pcmuPacket);
+            await playDecodedPCM(pcmData, 8000);
+        }
+    }
+};
+
+const muLawToLinear = (muLawSample) => {
+    const SIGN_BIT = 0x80;
+    const QUANT_MASK = 0x0f;
+    const SEG_SHIFT = 4;
+    const BIAS = 0x84;
+
+    muLawSample = ~muLawSample;
+    const sign = (muLawSample & SIGN_BIT) ? -1 : 1;
+    const exponent = (muLawSample & 0x70) >> SEG_SHIFT;
+    const mantissa = muLawSample & QUANT_MASK;
+    const sample = sign * ((mantissa << (exponent + 3)) + (1 << (exponent + 2)) - BIAS);
+
+    return sample;
+};
+
+const decodePCMUToPCM = (pcmuData) => {
+    const pcmData = new Float32Array(pcmuData.length);
+    for (let i = 0; i < pcmuData.length; i++) {
+        pcmData[i] = muLawToLinear(pcmuData[i]) / 32768; // Normalize to [-1, 1] for Web Audio
+    }
+    return pcmData;
+};
+
+const playDecodedPCM = async (pcmData, sampleRate = 8000) => {
+    const audioContextPB = new AudioContext({ sampleRate });
+    const audioBuffer = audioContextPB.createBuffer(1, pcmData.length, sampleRate);
+
+    // Fill the buffer with PCM data
+    audioBuffer.getChannelData(0).set(pcmData);
+
+    const source = audioContextPB.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContextPB.destination);
+    source.start(0);
+};
 
 </script>
