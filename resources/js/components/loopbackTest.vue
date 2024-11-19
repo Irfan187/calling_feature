@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from "vue";
-import FFmpeg from "@ffmpeg/ffmpeg";
+import { createFFmpeg } from "@ffmpeg/ffmpeg";
 
-const ffmpeg = FFmpeg.createFFmpeg({ log: true });
+const ffmpeg = createFFmpeg({ log: true });
 const isRecording = ref(false);
 const outputBase64RTP = ref("");
 
