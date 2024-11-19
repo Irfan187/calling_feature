@@ -20,6 +20,9 @@ let recordingInterval;
 let isRecording = ref(false);
 let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
 
+let sequenceNumber = 0;
+let timestamp = 0;
+
 const createRTPPacket = (payload) => {
     const HEADER_SIZE = 12;
     const rtpPacket = new Uint8Array(HEADER_SIZE + payload.length);
@@ -62,7 +65,7 @@ const encodeRTPToBase64 = (rtpPacket) => {
 
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
-
+    console.log(data);
     const rtpPacket = createRTPPacket(data);
     const base64Payload = encodeRTPToBase64(rtpPacket);
     if (command === 'processed') {
