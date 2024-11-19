@@ -62,26 +62,23 @@ const createRTPPacket = (payload) => {
     const extension = 0;
     const csrcCount = 0;
     const marker = 0;
-    const payloadType = 0; // PCMU (G.711 μ-law)
+    const payloadType = 0; // PCMU
     const ssrc = 12345; // Example SSRC
 
     // RTP Header
     rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
     rtpPacket[1] = (marker << 7) | payloadType;
 
-    // Sequence Number
     rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
     rtpPacket[3] = sequenceNumber & 0xff;
     sequenceNumber = (sequenceNumber + 1) % 65536;
 
-    // Timestamp
     rtpPacket[4] = (timestamp >> 24) & 0xff;
     rtpPacket[5] = (timestamp >> 16) & 0xff;
     rtpPacket[6] = (timestamp >> 8) & 0xff;
     rtpPacket[7] = timestamp & 0xff;
     timestamp += 800; // Increment for 100 ms at 8 kHz
 
-    // SSRC
     rtpPacket[8] = (ssrc >> 24) & 0xff;
     rtpPacket[9] = (ssrc >> 16) & 0xff;
     rtpPacket[10] = (ssrc >> 8) & 0xff;
@@ -90,10 +87,18 @@ const createRTPPacket = (payload) => {
     // Payload
     rtpPacket.set(payload, HEADER_SIZE);
 
+    // Debug log
+    console.log("RTP Packet Length:", rtpPacket.length);
+    console.log("Payload Length:", payload.length);
+
     return rtpPacket;
 };
 
-const encodeRTPToBase64 = (rtpPacket) => btoa(String.fromCharCode(...rtpPacket));
+const encodeRTPToBase64 = (rtpPacket) => {
+    const base64 = btoa(String.fromCharCode(...rtpPacket));
+    console.log("Base64 Encoded RTP Length:", base64.length);
+    return base64;
+};
 
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;

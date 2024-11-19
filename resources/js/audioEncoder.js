@@ -103,7 +103,12 @@ const linearToMuLaw = (sample) => {
 const sliceIntoPackets = (data, packetSize) => {
     const packets = [];
     for (let i = 0; i < data.length; i += packetSize) {
-        packets.push(data.subarray(i, i + packetSize));
+        const packet = data.subarray(i, i + packetSize);
+
+        // Only add packets of the correct size
+        if (packet.length === packetSize) {
+            packets.push(packet);
+        }
     }
     return packets;
 };
