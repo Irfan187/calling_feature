@@ -204,7 +204,6 @@ const joinConference = async () => {
     }
 }
 
-
 const initializeWebSocketAndAudio = () => {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -325,7 +324,7 @@ const startRecording = async () => {
         }
     });
 
-    mediaRecorder.start(100);
+    mediaRecorder.start(20);
 };
 
 const stopRecording = () => {
