@@ -1,11 +1,8 @@
-import * as lame from "@breezystack/lamejs";
-
 self.onmessage = async (event) => {
-    const { command, data } = event.data;
+    let { command, data } = event.data;
 
     if (command === "process") {
         try {
-            // Ensure the data is valid and has the correct byte length
             if (data.byteLength % 2 !== 0) {
                 console.warn(
                     "ArrayBuffer byte length is not a multiple of 2. Trimming extra byte."

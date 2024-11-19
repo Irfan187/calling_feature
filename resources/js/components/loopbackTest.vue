@@ -65,7 +65,6 @@ const encodeRTPToBase64 = (rtpPacket) => {
 
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
-    console.log(data);
     const rtpPacket = createRTPPacket(data);
     const base64Payload = encodeRTPToBase64(rtpPacket);
     if (command === 'processed') {

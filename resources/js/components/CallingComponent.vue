@@ -301,30 +301,32 @@ const handleStopEvent = (stopData) => {
 
 const startRecording = async () => {
     await register(await connect());
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav', audioChannels: 1 });
 
-    mediaRecorder.addEventListener('dataavailable', event => {
-        audioChunks.push(event.data);
-    });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
-    mediaRecorder.addEventListener('stop', async () => {
-        if (audioChunks.length > 0) {
-            const audioData = new Blob(audioChunks, { type: 'audio/wav' });
-            audioChunks = [];
-            audioEncoder.postMessage({ command: 'process', data: audioData });
+    mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) {
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                const audioChunk = reader.result;
+                audioEncoder.postMessage({ command: 'process', data: audioChunk });
+            };
+
+            reader.onerror = (error) => {
+                console.error("Error reading Blob as ArrayBuffer:", error);
+            };
+
+            reader.readAsArrayBuffer(event.data);
+        } else {
+            console.warn("Empty audio chunk received.");
         }
     });
 
-    mediaRecorder.start();
-
-    recordingInterval = setInterval(() => {
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            mediaRecorder.start();
-        }
-    }, 20);
-}
+    mediaRecorder.start(100);
+};
 
 const stopRecording = () => {
     mediaRecorder.stop();
