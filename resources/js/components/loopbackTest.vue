@@ -1,12 +1,10 @@
 <script setup>
 import { ref } from "vue";
-import { createFFmpeg } from "@ffmpeg/ffmpeg";
 
-const ffmpeg = createFFmpeg({ log: true });
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+let mediaRecorder = null;
 const isRecording = ref(false);
 const outputBase64RTP = ref("");
-
-let mediaRecorder = null;
 
 const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -16,16 +14,20 @@ const startRecording = async () => {
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+        const source = audioContext.createMediaStreamSource(stream);
 
+        // Setup a loop-back test
+        const destination = audioContext.destination;
+        source.connect(destination);
+
+        // Initialize MediaRecorder
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
         mediaRecorder.ondataavailable = async (event) => {
-            const base64RTP = await processAudioChunkWithFFmpeg(event.data);
-            if (base64RTP) {
-                outputBase64RTP.value += base64RTP + "\n";
-            }
+            const pcmuBase64 = await processAudioChunk(event.data);
+            outputBase64RTP.value += pcmuBase64 + "\n";
         };
 
-        mediaRecorder.start(100); // Record in 100ms chunks
+        mediaRecorder.start(100); // Capture audio in chunks of 100ms
         isRecording.value = true;
     } catch (error) {
         console.error("Error accessing microphone:", error);
@@ -39,35 +41,37 @@ const stopRecording = () => {
     }
 };
 
-const processAudioChunkWithFFmpeg = async (audioBlob) => {
-    try {
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const inputFileName = "input.webm";
-        const outputFileName = "output.raw";
+const processAudioChunk = async (audioBlob) => {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-        await ffmpeg.load();
-        ffmpeg.FS("writeFile", inputFileName, new Uint8Array(arrayBuffer));
+    // Resample to 8 kHz and convert to PCM
+    const offlineContext = new OfflineAudioContext(
+        1, // Mono channel
+        Math.ceil(audioBuffer.duration * 8000),
+        8000 // 8 kHz sample rate
+    );
 
-        // Convert to raw PCM at 8 kHz
-        await ffmpeg.run("-i", inputFileName, "-ar", "8000", "-ac", "1", "-f", "s16le", outputFileName);
+    const source = offlineContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineContext.destination);
+    source.start(0);
 
-        const output = ffmpeg.FS("readFile", outputFileName);
-        const pcmData = new Float32Array(output.buffer);
+    const resampledBuffer = await offlineContext.startRendering();
+    const pcmData = resampledBuffer.getChannelData(0);
 
-        // Convert PCM to PCMU
-        const pcmuData = pcmData.map((sample) => {
-            const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
-            return sample < 0 ? -mulawSample : mulawSample;
-        });
+    // Convert to PCMU
+    const pcmuData = pcmData.map((sample) => {
+        const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
+        return sample < 0 ? -mulawSample : mulawSample;
+    });
 
-        // Create RTP packets and encode to Base64
-        const packet = pcmuData.slice(0, 800);
-        const rtpPacket = new Uint8Array(packet);
-        return btoa(String.fromCharCode(...rtpPacket));
-    } catch (error) {
-        console.error("Error processing audio chunk with FFmpeg:", error);
-        return null;
-    }
+    // Create RTP packet (100ms = 800 samples for 8 kHz)
+    const packet = pcmuData.slice(0, 800);
+    const rtpPacket = new Uint8Array(packet);
+
+    // Convert RTP packet to Base64
+    return btoa(String.fromCharCode(...rtpPacket));
 };
 </script>
 
