@@ -1,7 +1,7 @@
 let pcmBuffer = new Uint8Array();
 
 self.onmessage = async (event) => {
-    const { command, data } = event.data;
+    let { command, data } = event.data;
 
     if (command === "process") {
         try {
