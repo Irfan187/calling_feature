@@ -34,7 +34,7 @@ const accumulatePCMData = (newData) => {
     const chunkSize = 4800; // 100 ms at 48 kHz
 
     // Combine the residual buffer with the new data
-    const combinedBuffer = new Uint8Array(pcmBuffer.length + newData.length);
+    let combinedBuffer = new Uint8Array(pcmBuffer.length + newData.length);
     combinedBuffer.set(pcmBuffer);
     combinedBuffer.set(newData, pcmBuffer.length);
 
