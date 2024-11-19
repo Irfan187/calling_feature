@@ -78,29 +78,42 @@ const downsampleBuffer = (buffer, inputSampleRate, outputSampleRate) => {
     }
 
     const sampleRatio = inputSampleRate / outputSampleRate;
-    const newLength = Math.round(buffer.length / sampleRatio);
+    const newLength = Math.floor(buffer.length / sampleRatio);
     const downsampledBuffer = new Float32Array(newLength);
 
-    // Apply a simple low-pass filter
-    const cutoff = outputSampleRate / 2; // Nyquist frequency
-    const rc = 1.0 / (2 * Math.PI * cutoff);
-    const dt = 1.0 / inputSampleRate;
-    const alpha = dt / (rc + dt);
-
-    let previous = 0;
-    for (let i = 0; i < buffer.length; i++) {
-        previous += alpha * (buffer[i] - previous);
-        buffer[i] = previous; // Low-pass filter applied in-place
-    }
+    const filterLength = 21;
+    const cutoffFreq = outputSampleRate / 2;
+    const filter = designFIRFilter(filterLength, cutoffFreq, inputSampleRate);
 
     for (let i = 0; i < newLength; i++) {
-        const index = Math.round(i * sampleRatio);
-        downsampledBuffer[i] = buffer[index];
+        const start = Math.floor(i * sampleRatio);
+        let sum = 0;
+        for (let j = 0; j < filter.length; j++) {
+            if (start + j < buffer.length) {
+                sum += buffer[start + j] * filter[j];
+            }
+        }
+        downsampledBuffer[i] = sum;
     }
 
     return downsampledBuffer;
 };
 
+const designFIRFilter = (length, cutoff, sampleRate) => {
+    const filter = new Float32Array(length);
+    const middle = Math.floor(length / 2);
+    for (let i = 0; i < length; i++) {
+        if (i === middle) {
+            filter[i] = 2 * cutoff / sampleRate;
+        } else {
+            const numerator = Math.sin(2 * Math.PI * cutoff * (i - middle) / sampleRate);
+            const denominator = Math.PI * (i - middle);
+            filter[i] = numerator / denominator;
+        }
+        filter[i] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (length - 1));
+    }
+    return filter;
+};
 
 const convertToPCMU = (buffer) => {
     return buffer.map((sample) => {
