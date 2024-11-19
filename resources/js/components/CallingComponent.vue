@@ -50,15 +50,60 @@ let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { 
 const conference_created = ref(false);
 const conference_id = ref();
 
+let sequenceNumber = 0;
+let timestamp = 0;
+
+const createRTPPacket = (payload) => {
+    const HEADER_SIZE = 12;
+    const rtpPacket = new Uint8Array(HEADER_SIZE + payload.length);
+
+    const version = 2;
+    const padding = 0;
+    const extension = 0;
+    const csrcCount = 0;
+    const marker = 0;
+    const payloadType = 0;
+    const ssrc = 12345;
+
+    rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
+
+    rtpPacket[1] = (marker << 7) | payloadType;
+
+    rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
+    rtpPacket[3] = sequenceNumber & 0xff;
+    sequenceNumber = (sequenceNumber + 1) % 65536;
+
+    rtpPacket[4] = (timestamp >> 24) & 0xff;
+    rtpPacket[5] = (timestamp >> 16) & 0xff;
+    rtpPacket[6] = (timestamp >> 8) & 0xff;
+    rtpPacket[7] = timestamp & 0xff;
+    timestamp += 160;
+
+    rtpPacket[8] = (ssrc >> 24) & 0xff;
+    rtpPacket[9] = (ssrc >> 16) & 0xff;
+    rtpPacket[10] = (ssrc >> 8) & 0xff;
+    rtpPacket[11] = ssrc & 0xff;
+
+    rtpPacket.set(payload, HEADER_SIZE);
+
+    return rtpPacket;
+};
+
+const encodeRTPToBase64 = (rtpPacket) => {
+    return btoa(String.fromCharCode(...rtpPacket));
+};
+
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
 
     if (command === 'processed') {
         if (ws && ws.readyState === WebSocket.OPEN) {
+            const rtpPacket = createRTPPacket(data);
+            const base64Payload = encodeRTPToBase64(rtpPacket);
             let payload = {
                 "event": "media",
                 "media": {
-                    "payload": data
+                    "payload": base64Payload
                 }
             };
             ws.send(JSON.stringify(payload));
@@ -79,7 +124,6 @@ const makeCall = async () => {
     }
 };
 
-/**  Call Recording Feature Start */
 const startCallRecording = async () => {
     console.log(call_control_id.value);
     const data = {
@@ -107,8 +151,6 @@ const endCallRecording = async () => {
     }
 };
 
-/**  Call Recording Feature End */
-
 const answerCall = async () => {
     const data = {
         to: to.value,
@@ -123,7 +165,6 @@ const answerCall = async () => {
 };
 
 
-/** Conference call logic start */
 const createConference = async () => {
     const data = {
         call_control_id: call_control_id.value
@@ -162,10 +203,6 @@ const joinConference = async () => {
         console.error('Error making call:', error);
     }
 }
-
-
-
-/** Conference call logic end */
 
 
 const initializeWebSocketAndAudio = () => {
@@ -264,30 +301,22 @@ const handleStopEvent = (stopData) => {
 
 const startRecording = async () => {
     await register(await connect());
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav', audioChannels: 1 });
 
-    mediaRecorder.addEventListener('dataavailable', event => {
-        audioChunks.push(event.data);
-    });
+    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
+    
+    mediaRecorder.addEventListener('dataavailable', async (event) => {
+        if (event.data.size > 0) {
+            const audioData = event.data;
 
-    mediaRecorder.addEventListener('stop', async () => {
-        if (audioChunks.length > 0) {
-            const audioData = new Blob(audioChunks, { type: 'audio/wav' });
-            audioChunks = [];
             audioEncoder.postMessage({ command: 'process', data: audioData });
         }
     });
 
-    mediaRecorder.start();
+    mediaRecorder.start(20);
+};
 
-    recordingInterval = setInterval(() => {
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            mediaRecorder.start();
-        }
-    }, 1000);
-}
 
 const stopRecording = () => {
     mediaRecorder.stop();
