@@ -20,12 +20,53 @@ let recordingInterval;
 let isRecording = ref(false);
 let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
 
+const createRTPPacket = (payload) => {
+    const HEADER_SIZE = 12;
+    const rtpPacket = new Uint8Array(HEADER_SIZE + payload.length);
+
+    const version = 2;
+    const padding = 0;
+    const extension = 0;
+    const csrcCount = 0;
+    const marker = 0;
+    const payloadType = 0;
+    const ssrc = 12345;
+
+    rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
+
+    rtpPacket[1] = (marker << 7) | payloadType;
+
+    rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
+    rtpPacket[3] = sequenceNumber & 0xff;
+    sequenceNumber = (sequenceNumber + 1) % 65536;
+
+    rtpPacket[4] = (timestamp >> 24) & 0xff;
+    rtpPacket[5] = (timestamp >> 16) & 0xff;
+    rtpPacket[6] = (timestamp >> 8) & 0xff;
+    rtpPacket[7] = timestamp & 0xff;
+    timestamp += 160;
+
+    rtpPacket[8] = (ssrc >> 24) & 0xff;
+    rtpPacket[9] = (ssrc >> 16) & 0xff;
+    rtpPacket[10] = (ssrc >> 8) & 0xff;
+    rtpPacket[11] = ssrc & 0xff;
+
+    rtpPacket.set(payload, HEADER_SIZE);
+
+    return rtpPacket;
+};
+
+const encodeRTPToBase64 = (rtpPacket) => {
+    return btoa(String.fromCharCode(...rtpPacket));
+};
+
 audioEncoder.onmessage = async (event) => {
-    console.log(event);
     const { command, data } = event.data;
 
+    const rtpPacket = createRTPPacket(data);
+    const base64Payload = encodeRTPToBase64(rtpPacket);
     if (command === 'processed') {
-        await playAudio(data);
+        await playAudio(base64Payload);
     }
 };
 
@@ -68,7 +109,7 @@ const startRecording = async () => {
             mediaRecorder.stop();
             mediaRecorder.start();
         }
-    }, 1000);
+    }, 20);
 }
 
 const stopRecording = () => {
