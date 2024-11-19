@@ -9,12 +9,13 @@
 </template>
 
 <script setup>
-import { MediaRecorder, register } from 'extendable-media-recorder';
-import { connect } from 'extendable-media-recorder-wav-encoder';
-import { ref } from 'vue';
+import { ref } from "vue";
 
 let mediaRecorder;
-let isRecording = ref(false);
+const isRecording = ref(false);
+
+// Single global AudioContext
+const audioContext = new AudioContext({ sampleRate: 8000 });
 
 const handleStartEvent = () => {
     startRecording();
@@ -23,7 +24,7 @@ const handleStartEvent = () => {
 
 const handleStopEvent = () => {
     isRecording.value = false;
-    stopRecording();
+    mediaRecorder.stop();
 };
 
 const startRecording = async () => {
@@ -41,27 +42,53 @@ const startRecording = async () => {
     mediaRecorder.start(20); // Emit chunks every 20 ms
 };
 
-const stopRecording = () => {
-    mediaRecorder.stop();
-}
+const processAudio = async (arrayBuffer) => {
+    // Align buffer to Int16Array requirements
+    if (arrayBuffer.byteLength % 2 !== 0) {
+        arrayBuffer = arrayBuffer.slice(0, arrayBuffer.byteLength - 1);
+    }
 
-const resamplePCM = async (pcmData, inputSampleRate, targetSampleRate) => {
-    const audioContext = new OfflineAudioContext(1, pcmData.length, inputSampleRate);
-    const audioBuffer = audioContext.createBuffer(1, pcmData.length, inputSampleRate);
+    const pcmData = new Int16Array(arrayBuffer);
 
-    audioBuffer.getChannelData(0).set(pcmData);
+    try {
+        // Resample to 8 kHz
+        const resampledPCM = await resamplePCM(pcmData, 48000, 8000);
 
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
+        // Encode to PCMA
+        const pcmaData = encodeToPCMA(resampledPCM);
 
-    const resampledContext = new OfflineAudioContext(1, pcmData.length * targetSampleRate / inputSampleRate, targetSampleRate);
-    source.connect(resampledContext.destination);
-    source.start(0);
+        // Create RTP packet
+        const rtpPacket = createRTPPacket(pcmaData);
 
-    const resampledBuffer = await resampledContext.startRendering();
-    return resampledBuffer.getChannelData(0); // Float32Array of resampled PCM data
+        // Play RTP for testing
+        testRTPPlayback(rtpPacket);
+    } catch (error) {
+        console.error("Error processing audio:", error);
+    }
 };
 
+const resamplePCM = async (pcmData, inputSampleRate, targetSampleRate) => {
+    const audioBuffer = audioContext.createBuffer(1, pcmData.length, inputSampleRate);
+    audioBuffer.getChannelData(0).set(pcmData);
+
+    const offlineContext = new OfflineAudioContext(1, Math.ceil((pcmData.length * targetSampleRate) / inputSampleRate), targetSampleRate);
+    const bufferSource = offlineContext.createBufferSource();
+    bufferSource.buffer = audioBuffer;
+
+    bufferSource.connect(offlineContext.destination);
+    bufferSource.start(0);
+
+    const resampledBuffer = await offlineContext.startRendering();
+    return resampledBuffer.getChannelData(0); // Float32Array
+};
+
+const encodeToPCMA = (pcmData) => {
+    const pcmaData = new Uint8Array(pcmData.length);
+    for (let i = 0; i < pcmData.length; i++) {
+        pcmaData[i] = linearToALaw(pcmData[i]);
+    }
+    return pcmaData;
+};
 
 const linearToALaw = (sample) => {
     const ALAW_MAX = 0x7FFF;
@@ -85,17 +112,6 @@ const linearToALaw = (sample) => {
 
     return ~(sign | compressedByte) & 0xFF;
 };
-
-const encodeToPCMA = (pcmData) => {
-    const pcmaData = new Uint8Array(pcmData.length);
-    for (let i = 0; i < pcmData.length; i++) {
-        pcmaData[i] = linearToALaw(pcmData[i]);
-    }
-    return pcmaData;
-};
-
-let sequenceNumber = 0;
-let timestamp = 0;
 
 const createRTPPacket = (payload) => {
     const HEADER_SIZE = 12;
@@ -132,72 +148,10 @@ const createRTPPacket = (payload) => {
     return rtpPacket;
 };
 
-let loggingDone = false;
-
-const processAudio = async (arrayBuffer) => {
-    const pcmData = new Int16Array(arrayBuffer);
-
-    if (!loggingDone) console.log('pcmData', pcmData);
-
-    // Resample PCM data to 8 kHz
-    const resampledPCM = await resamplePCM(pcmData, 48000, 8000);
-    if (!loggingDone) console.log('resampledPCM', resampledPCM);
-
-    // Encode to PCMA
-    const pcmaData = encodeToPCMA(resampledPCM);
-    if (!loggingDone) console.log('pcmaData', pcmaData);
-
-    // Create RTP packets
-    const rtpPacket = createRTPPacket(pcmaData);
-    if (!loggingDone) console.log('rtpPacket', rtpPacket);
-
-    testRTPPlayback(rtpPacket);
-
-    if (!loggingDone) loggingDone = true;
-};
-
-const extractPCMAFromRTP = (rtpPacket) => {
-    const HEADER_SIZE = 12; // RTP header size
-    return rtpPacket.subarray(HEADER_SIZE); // Extract payload after the header
-};
-
-const decodePCMA = (pcmaData) => {
-    const pcmData = new Int16Array(pcmaData.length);
-    for (let i = 0; i < pcmaData.length; i++) {
-        pcmData[i] = alawToLinear(pcmaData[i]);
-    }
-    return pcmData;
-};
-
-const playPCMData = async (pcmData, sampleRate = 8000) => {
-    const audioContext = new AudioContext({ sampleRate });
-
-    // Create an AudioBuffer
-    const audioBuffer = audioContext.createBuffer(1, pcmData.length, sampleRate);
-    const bufferData = audioBuffer.getChannelData(0);
-
-    // Normalize PCM data to Float32 range (-1 to 1)
-    for (let i = 0; i < pcmData.length; i++) {
-        bufferData[i] = pcmData[i] / 32768; // Normalize to -1 to 1
-    }
-
-    // Create a BufferSource and connect it
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
-
-    // Play the audio
-    source.start(0);
-};
-
 const testRTPPlayback = (rtpPacket) => {
-    // Extract PCMA payload
-    const pcmaPayload = extractPCMAFromRTP(rtpPacket);
-
-    // Decode PCMA to PCM
+    const pcmaPayload = rtpPacket.subarray(12); // Extract payload
     const pcmData = decodePCMA(pcmaPayload);
-
-    // Play PCM data
-    playPCMData(pcmData, 8000);
+    playPCMData(pcmData);
 };
+
 </script>
