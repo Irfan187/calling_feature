@@ -1,21 +1,8 @@
-<template>
-    <div>
-        <button @click="startRecording" :disabled="isRecording">Start</button>
-        <button @click="stopRecording" :disabled="!isRecording">Stop</button>
-        <div v-if="outputBase64RTP">
-            <h3>Base64 RTP Packet:</h3>
-            <textarea readonly rows="10" cols="50">{{ outputBase64RTP }}</textarea>
-        </div>
-    </div>
-</template>
-
-
 <script setup>
 import { ref } from "vue";
 
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let mediaRecorder = null;
-let audioChunks = [];
 const isRecording = ref(false);
 const outputBase64RTP = ref("");
 
@@ -35,19 +22,12 @@ const startRecording = async () => {
 
         // Initialize MediaRecorder
         mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
+        mediaRecorder.ondataavailable = async (event) => {
+            const pcmuBase64 = await processAudioChunk(event.data);
+            outputBase64RTP.value += pcmuBase64 + "\n";
         };
 
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-            audioChunks = [];
-
-            const pcmuBase64 = await convertToPCMUBase64(audioBlob);
-            outputBase64RTP.value = pcmuBase64;
-        };
-
-        mediaRecorder.start();
+        mediaRecorder.start(100); // Capture audio in chunks of 100ms
         isRecording.value = true;
     } catch (error) {
         console.error("Error accessing microphone:", error);
@@ -61,7 +41,7 @@ const stopRecording = () => {
     }
 };
 
-const convertToPCMUBase64 = async (audioBlob) => {
+const processAudioChunk = async (audioBlob) => {
     const arrayBuffer = await audioBlob.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
@@ -87,13 +67,21 @@ const convertToPCMUBase64 = async (audioBlob) => {
     });
 
     // Create RTP packet (100ms = 800 samples for 8 kHz)
-    const rtpPackets = [];
-    for (let i = 0; i < pcmuData.length; i += 800) {
-        const packet = pcmuData.slice(i, i + 800);
-        rtpPackets.push(new Uint8Array(packet));
-    }
+    const packet = pcmuData.slice(0, 800);
+    const rtpPacket = new Uint8Array(packet);
 
-    // Convert RTP packets to Base64
-    return rtpPackets.map((packet) => btoa(String.fromCharCode(...packet))).join("\n");
+    // Convert RTP packet to Base64
+    return btoa(String.fromCharCode(...rtpPacket));
 };
 </script>
+
+<template>
+    <div>
+        <button @click="startRecording" :disabled="isRecording">Start</button>
+        <button @click="stopRecording" :disabled="!isRecording">Stop</button>
+        <div v-if="outputBase64RTP">
+            <h3>Streaming Base64 RTP Packets:</h3>
+            <textarea readonly rows="10" cols="50">{{ outputBase64RTP }}</textarea>
+        </div>
+    </div>
+</template>
