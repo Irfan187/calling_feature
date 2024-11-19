@@ -12,8 +12,7 @@
 import { MediaRecorder, register } from 'extendable-media-recorder';
 import { connect } from 'extendable-media-recorder-wav-encoder';
 import { ref } from 'vue';
-import { pcmuToMp3Base64 } from "../../../audioConversion.js";
-import { AudioBuffer } from "../../../audioBuffer.js";
+import * as lame from "@breezystack/lamejs";
 
 let mediaRecorder;
 let audioChunks = [];
@@ -24,7 +23,6 @@ let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { 
 
 let sequenceNumber = 0;
 let timestamp = 0;
-let seqNo = 0;
 
 const createRTPPacket = (payload) => {
     const HEADER_SIZE = 12;
@@ -66,23 +64,13 @@ const encodeRTPToBase64 = (rtpPacket) => {
     return btoa(String.fromCharCode(...rtpPacket));
 };
 
-const audioBuffer = new AudioBuffer(async (combinedChunks) => {
-    pcmuToMp3Base64(combinedChunks, (mp3Base64, error) => {
-        if (error) {
-            console.error("Failed to convert audio:", error);
-            return;
-        }
-        playAudio(mp3Base64);
-    });
-}, 160);
-
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
-    const rtpPacket = createRTPPacket(data);
-    const base64Payload = encodeRTPToBase64(rtpPacket);
+    //const rtpPacket = createRTPPacket(data);
+    //const base64Payload = encodeRTPToBase64(rtpPacket);
     if (command === 'processed') {
-        const chunk = Buffer.from(base64Payload, "base64");
-        audioBuffer.add(chunk, ++seqNo);
+        const pcmData = decodePCMUToPCM(data);
+        playPCM(pcmData);
     }
 };
 
@@ -132,43 +120,48 @@ const startRecording = async () => {
 
 const stopRecording = () => {
     mediaRecorder.stop();
-    audioBuffer.flush();
     clearInterval(recordingInterval);
 }
 
-const playAudio = async (base64Data) => {
-    return new Promise((resolve, reject) => {
-        try {
-            // Step 1: Decode base64 data to binary data
-            const binaryString = atob(base64Data);
-            const len = binaryString.length;
-            const arrayBuffer = new ArrayBuffer(len);
-            const uint8Array = new Uint8Array(arrayBuffer);
-
-            for (let i = 0; i < len; i++) {
-                uint8Array[i] = binaryString.charCodeAt(i);
-            }
-
-            // Step 2: Decode the audio data
-            audioContext.decodeAudioData(arrayBuffer, (audioBuffer) => {
-                // Step 3: Play the audio
-                const source = audioContext.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioContext.destination);
-                source.start(0);
-
-                // Step 4: Resolve the promise when the audio finishes playing
-                source.onended = () => {
-                    resolve();
-                };
-            }, (error) => {
-                reject('Error decoding audio data: ' + error);
-            });
-        } catch (error) {
-            reject('Error processing audio data: ' + error);
-        }
-    });
+const decodePCMUToPCM = (pcmuData) => {
+    const pcmData = new Int16Array(pcmuData.length);
+    for (let i = 0; i < pcmuData.length; i++) {
+        pcmData[i] = muLawToLinear(pcmuData[i]);
+    }
+    return pcmData;
 };
 
+const muLawToLinear = (muLaw) => {
+    const SIGN_BIT = 0x80;
+    const QUANT_MASK = 0x0f;
+    const SEG_SHIFT = 4;
+
+    muLaw = ~muLaw;
+    const sign = (muLaw & SIGN_BIT) ? -1 : 1;
+    const exponent = (muLaw & 0x70) >> SEG_SHIFT;
+    const mantissa = muLaw & QUANT_MASK;
+
+    let sample = ((1 << (exponent + 3)) + (mantissa << (exponent + 3))) - 33;
+    return sign * sample;
+};
+
+const audioContextPB = new AudioContext({ sampleRate: 8000 }); // PCMU operates at 8 kHz
+
+const playPCM = (pcmData) => {
+    // Convert Int16 PCM to Float32 for AudioContext
+    const float32Data = new Float32Array(pcmData.length);
+    for (let i = 0; i < pcmData.length; i++) {
+        float32Data[i] = pcmData[i] / 32768; // Normalize to [-1.0, 1.0]
+    }
+
+    // Create an AudioBuffer and play the data
+    const audioBuffer = audioContextPB.createBuffer(1, float32Data.length, 8000); // Mono, 8 kHz
+    audioBuffer.copyToChannel(float32Data, 0);
+
+    const source = audioContextPB.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContextPB.destination);
+    source.start();
+};
 
 </script>

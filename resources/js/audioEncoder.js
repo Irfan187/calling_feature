@@ -9,8 +9,6 @@ self.onmessage = async (event) => {
                 );
                 data = data.slice(0, data.byteLength - (data.byteLength % 2));
             }
-
-            // Process the input into PCMU packets
             const pcmuPackets = await encodeToPCMU(data);
             self.postMessage({ command: "processed", data: pcmuPackets });
         } catch (error) {
