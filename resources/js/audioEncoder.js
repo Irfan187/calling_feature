@@ -1,16 +1,24 @@
+let pcmBuffer = [];
+
 self.onmessage = async (event) => {
-    let { command, data } = event.data;
+    const { command, data } = event.data;
 
     if (command === "process") {
         try {
-            if (data.byteLength % 2 !== 0) {
-                console.warn(
-                    "ArrayBuffer byte length is not a multiple of 2. Trimming extra byte."
-                );
-                data = data.slice(0, data.byteLength - (data.byteLength % 2));
+            const pcmData = new Int16Array(data);
+            pcmBuffer = pcmBuffer.concat(Array.from(pcmData));
+
+            const samplesNeeded = 960;
+            while (pcmBuffer.length >= samplesNeeded) {
+                const chunk = pcmBuffer.slice(0, samplesNeeded);
+                pcmBuffer = pcmBuffer.slice(samplesNeeded);
+
+                const resampledPCM = resample(new Int16Array(chunk), 48000, 8000);
+                const pcMuData = encodeSamplesToPCMU(resampledPCM);
+                const packets = sliceIntoPackets(pcMuData, 160);
+
+                self.postMessage({ command: "processed", data: packets });
             }
-            const pcmuPackets = await encodeToPCMU(data);
-            self.postMessage({ command: "processed", data: pcmuPackets });
         } catch (error) {
             console.error("Error processing audio data:", error);
         }
@@ -34,30 +42,6 @@ const resample = (input, fromRate, toRate) => {
     console.log("Output length:", output.length);
 
     return output;
-};
-
-// Encode the input audio data to PCMU (G.711 μ-law) format
-const encodeToPCMU = async (buffer) => {
-    // Convert ArrayBuffer to Int16Array for PCM processing
-    const pcmData = new Int16Array(buffer);
-    console.log("Input PCM data length:", pcmData.length);
-    
-    // Assuming a sample rate (MediaRecorder does not provide sample rate directly)
-    const assumedSampleRate = 48000; // Default assumed MediaRecorder sample rate
-    const targetSampleRate = 8000;
-
-    // Resample to 8 kHz if necessary
-    const resampledPCM =
-        assumedSampleRate !== targetSampleRate
-            ? resample(pcmData, assumedSampleRate, targetSampleRate)
-            : pcmData;
-
-    // Encode PCM data to PCMU
-    const pcMuData = encodeSamplesToPCMU(resampledPCM);
-
-    // Slice PCMU data into 20 ms packets (160 samples per packet at 8 kHz)
-    const packetSize = 160; // 20 ms at 8 kHz
-    return sliceIntoPackets(pcMuData, packetSize);
 };
 
 // Convert Int16 PCM samples to PCMU (G.711 μ-law)
