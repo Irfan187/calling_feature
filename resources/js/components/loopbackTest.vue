@@ -97,8 +97,11 @@ const startRecording = async () => {
 
     mediaRecorder.addEventListener('dataavailable', async (event) => {
         if (event.data.size > 0) {
-            const audioBlob = event.data;
-            audioEncoder.postMessage({ command: 'process', data: audioBlob });
+            console.log("Audio chunk size:", event.data.size);
+            const audioChunk = await event.data.arrayBuffer();
+            audioEncoder.postMessage({ command: 'process', data: audioChunk });
+        } else {
+            console.warn("Empty audio chunk received.");
         }
     });
 
