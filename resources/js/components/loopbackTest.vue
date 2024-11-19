@@ -1,10 +1,12 @@
 <script setup>
 import { ref } from "vue";
 
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-let mediaRecorder = null;
 const isRecording = ref(false);
 const outputBase64RTP = ref("");
+let audioContext = null;
+let mediaStream = null;
+let processor = null;
+let sourceNode = null;
 
 const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -13,21 +15,27 @@ const startRecording = async () => {
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const source = audioContext.createMediaStreamSource(stream);
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        // Setup a loop-back test
-        const destination = audioContext.destination;
-        source.connect(destination);
+        const sampleRate = 8000; // Target sample rate for PCMU
+        sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
-        // Initialize MediaRecorder
-        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-        mediaRecorder.ondataavailable = async (event) => {
-            const pcmuBase64 = await processAudioChunk(event.data);
-            outputBase64RTP.value += pcmuBase64 + "\n";
+        // ScriptProcessorNode is deprecated but still widely supported.
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        processor.onaudioprocess = (event) => {
+            const inputBuffer = event.inputBuffer.getChannelData(0); // Mono channel
+            const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, sampleRate);
+            const pcmuPacket = convertToPCMU(downsampledBuffer);
+            const rtpPacketBase64 = encodeToBase64(rtpPacketize(pcmuPacket));
+
+            // Append the Base64 RTP packet
+            outputBase64RTP.value += rtpPacketBase64 + "\n";
         };
 
-        mediaRecorder.start(100); // Capture audio in chunks of 100ms
+        sourceNode.connect(processor);
+        processor.connect(audioContext.destination); // For a loopback effect (optional)
         isRecording.value = true;
     } catch (error) {
         console.error("Error accessing microphone:", error);
@@ -35,43 +43,48 @@ const startRecording = async () => {
 };
 
 const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop();
+    if (isRecording.value) {
+        sourceNode.disconnect();
+        processor.disconnect();
+        mediaStream.getTracks().forEach((track) => track.stop());
+        audioContext.close();
+
         isRecording.value = false;
     }
 };
 
-const processAudioChunk = async (audioBlob) => {
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+const downsampleBuffer = (buffer, inputSampleRate, outputSampleRate) => {
+    if (outputSampleRate === inputSampleRate) {
+        return buffer;
+    }
 
-    // Resample to 8 kHz and convert to PCM
-    const offlineContext = new OfflineAudioContext(
-        1, // Mono channel
-        Math.ceil(audioBuffer.duration * 8000),
-        8000 // 8 kHz sample rate
-    );
+    const sampleRatio = inputSampleRate / outputSampleRate;
+    const newLength = Math.round(buffer.length / sampleRatio);
+    const downsampledBuffer = new Float32Array(newLength);
 
-    const source = offlineContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(offlineContext.destination);
-    source.start(0);
+    for (let i = 0; i < newLength; i++) {
+        const index = Math.round(i * sampleRatio);
+        downsampledBuffer[i] = buffer[index];
+    }
 
-    const resampledBuffer = await offlineContext.startRendering();
-    const pcmData = resampledBuffer.getChannelData(0);
+    return downsampledBuffer;
+};
 
-    // Convert to PCMU
-    const pcmuData = pcmData.map((sample) => {
+const convertToPCMU = (buffer) => {
+    return buffer.map((sample) => {
         const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
         return sample < 0 ? -mulawSample : mulawSample;
     });
+};
 
-    // Create RTP packet (100ms = 800 samples for 8 kHz)
-    const packet = pcmuData.slice(0, 800);
-    const rtpPacket = new Uint8Array(packet);
+const rtpPacketize = (pcmuData) => {
+    const packetSize = 800; // 100ms of audio at 8 kHz
+    const packet = pcmuData.slice(0, packetSize);
+    return new Uint8Array(packet);
+};
 
-    // Convert RTP packet to Base64
-    return btoa(String.fromCharCode(...rtpPacket));
+const encodeToBase64 = (data) => {
+    return btoa(String.fromCharCode(...data));
 };
 </script>
 
