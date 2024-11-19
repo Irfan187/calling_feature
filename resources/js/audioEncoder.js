@@ -49,18 +49,21 @@ self.onmessage = async (event) => {
 };
 
 // Resample PCM data to 8 kHz
-const resample = (input, fromRate, toRate) => {
-    const ratio = fromRate / toRate;
-    const outputLength = Math.floor(input.length / ratio);
-    const output = new Int16Array(outputLength);
+const resample = async (pcmData, fromRate, toRate) => {
+    const audioContext = new AudioContext({ sampleRate: fromRate });
+    const audioBuffer = audioContext.createBuffer(1, pcmData.length, fromRate);
+    audioBuffer.getChannelData(0).set(pcmData);
 
-    for (let i = 0; i < outputLength; i++) {
-        const nearestSample = Math.round(i * ratio);
-        output[i] = input[nearestSample] || 0;
-    }
+    const offlineContext = new OfflineAudioContext(1, Math.ceil(pcmData.length * toRate / fromRate), toRate);
+    const source = offlineContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineContext.destination);
+    source.start(0);
 
-    return output;
+    const resampledBuffer = await offlineContext.startRendering();
+    return resampledBuffer.getChannelData(0);
 };
+
 
 // Encode Int16 PCM to PCMU
 const encodeSamplesToPCMU = (samples) => {

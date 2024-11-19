@@ -100,6 +100,7 @@ audioEncoder.onmessage = async (event) => {
 
     if (command === "processed") {
         for (const pcmuPacket of data) {
+            console.log(pcmuPacket);
             const rtpPacket = createRTPPacket(pcmuPacket);
             const base64Payload = encodeRTPToBase64(rtpPacket);
 
