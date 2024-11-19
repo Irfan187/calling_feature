@@ -301,22 +301,30 @@ const handleStopEvent = (stopData) => {
 
 const startRecording = async () => {
     await register(await connect());
-
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav', audioChannels: 1 });
 
-    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
-    
-    mediaRecorder.addEventListener('dataavailable', async (event) => {
-        if (event.data.size > 0) {
-            const audioData = event.data;
+    mediaRecorder.addEventListener('dataavailable', event => {
+        audioChunks.push(event.data);
+    });
 
+    mediaRecorder.addEventListener('stop', async () => {
+        if (audioChunks.length > 0) {
+            const audioData = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = [];
             audioEncoder.postMessage({ command: 'process', data: audioData });
         }
     });
 
-    mediaRecorder.start(20);
-};
+    mediaRecorder.start();
 
+    recordingInterval = setInterval(() => {
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            mediaRecorder.start();
+        }
+    }, 20);
+}
 
 const stopRecording = () => {
     mediaRecorder.stop();
