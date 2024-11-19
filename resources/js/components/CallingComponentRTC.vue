@@ -52,27 +52,26 @@ const startRecording = async () => {
         processor = audioContext.createScriptProcessor(4096, 1, 1);
 
         let packetBuffer = [];
+        const SAMPLES_PER_PACKET = 160;
         const BATCH_INTERVAL_MS = 100;
-        const SAMPLES_PER_PACKET = 800; 
-        let lastSentTime = performance.now();
 
         processor.onaudioprocess = (event) => {
             const inputBuffer = event.inputBuffer.getChannelData(0);
-            const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, 8000);
-            const pcmuPacket = convertToPCMU(downsampledBuffer);
-            const rtpPackets = rtpPacketize(pcmuPacket, SAMPLES_PER_PACKET);
+            const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, sampleRate);
+            const pcmuData = convertToPCMU(downsampledBuffer);
 
+            const rtpPackets = rtpPacketize(pcmuData, SAMPLES_PER_PACKET);
             packetBuffer.push(...rtpPackets);
 
             const currentTime = performance.now();
             if (currentTime - lastSentTime >= BATCH_INTERVAL_MS) {
-                const batchedPackets = packetBuffer.splice(0);
-                const rtpPacketBase64 = encodeToBase64(new Uint8Array(batchedPackets.flat()));
+                const batch = packetBuffer.splice(0);
+                const base64Batch = batch.map(packet => encodeToBase64(packet));
 
                 const payload = {
                     event: "media",
                     media: {
-                        payload: rtpPacketBase64,
+                        payloads: base64Batch,
                     },
                 };
 
@@ -80,6 +79,7 @@ const startRecording = async () => {
                 lastSentTime = currentTime;
             }
         };
+
         sourceNode.connect(processor);
     } catch (error) {
         console.error("Error accessing microphone:", error);
@@ -119,11 +119,50 @@ const convertToPCMU = (buffer) => {
 };
 
 
-const rtpPacketize = (pcmuData, samplesPerPacket = 800) => {
+let sequenceNumber = 0;
+let timestamp = 0;
+
+const createRTPHeader = (sequenceNumber, timestamp) => {
+    const version = 2; // RTP version 2
+    const padding = 0; // No padding
+    const extension = 0; // No extension
+    const csrcCount = 0; // No CSRC identifiers
+    const marker = 0; // No marker
+    const payloadType = 0; // PCMU payload type (G.711 μ-law)
+
+    const firstByte = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
+    const secondByte = (marker << 7) | payloadType;
+
+    const header = new Uint8Array(12);
+    header[0] = firstByte;
+    header[1] = secondByte;
+    header[2] = (sequenceNumber >> 8) & 0xff; // Sequence number (high byte)
+    header[3] = sequenceNumber & 0xff; // Sequence number (low byte)
+    header[4] = (timestamp >> 24) & 0xff; // Timestamp (high byte)
+    header[5] = (timestamp >> 16) & 0xff;
+    header[6] = (timestamp >> 8) & 0xff;
+    header[7] = timestamp & 0xff; // Timestamp (low byte)
+    header[8] = 0x00; // SSRC
+    header[9] = 0x00;
+    header[10] = 0x00;
+    header[11] = 0x01;
+
+    return header;
+};
+
+const rtpPacketize = (pcmuData, samplesPerPacket) => {
     const packets = [];
     for (let i = 0; i < pcmuData.length; i += samplesPerPacket) {
-        const packet = pcmuData.slice(i, i + samplesPerPacket);
-        packets.push(new Uint8Array(packet));
+        const header = createRTPHeader(sequenceNumber++, timestamp);
+        const payload = pcmuData.slice(i, i + samplesPerPacket);
+        const packet = new Uint8Array(header.length + payload.length);
+
+        packet.set(header);
+        packet.set(payload, header.length);
+
+        packets.push(packet);
+
+        timestamp += samplesPerPacket;
     }
     return packets;
 };
