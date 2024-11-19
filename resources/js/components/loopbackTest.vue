@@ -72,7 +72,7 @@ const audioBuffer = new AudioBuffer(async (combinedChunks) => {
             console.error("Failed to convert audio:", error);
             return;
         }
-        playAudio(base64Data);
+        playAudio(mp3Base64);
     });
 }, 160);
 
