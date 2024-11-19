@@ -51,21 +51,35 @@ const startRecording = async () => {
 
         processor = audioContext.createScriptProcessor(4096, 1, 1);
 
+        let packetBuffer = [];
+        const BATCH_INTERVAL_MS = 100;
+        const SAMPLES_PER_PACKET = 800; 
+        let lastSentTime = performance.now();
+
         processor.onaudioprocess = (event) => {
             const inputBuffer = event.inputBuffer.getChannelData(0);
-            const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, sampleRate);
+            const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, 8000);
             const pcmuPacket = convertToPCMU(downsampledBuffer);
-            const rtpPacketBase64 = encodeToBase64(rtpPacketize(pcmuPacket));
+            const rtpPackets = rtpPacketize(pcmuPacket, SAMPLES_PER_PACKET);
 
-            let payload = {
-                "event": "media",
-                "media": {
-                    "payload": rtpPacketBase64
-                }
-            };
-            ws.send(JSON.stringify(payload));
+            packetBuffer.push(...rtpPackets);
+
+            const currentTime = performance.now();
+            if (currentTime - lastSentTime >= BATCH_INTERVAL_MS) {
+                const batchedPackets = packetBuffer.splice(0);
+                const rtpPacketBase64 = encodeToBase64(new Uint8Array(batchedPackets.flat()));
+
+                const payload = {
+                    event: "media",
+                    media: {
+                        payload: rtpPacketBase64,
+                    },
+                };
+
+                ws.send(JSON.stringify(payload));
+                lastSentTime = currentTime;
+            }
         };
-
         sourceNode.connect(processor);
     } catch (error) {
         console.error("Error accessing microphone:", error);
@@ -105,11 +119,11 @@ const convertToPCMU = (buffer) => {
 };
 
 
-const rtpPacketize = (pcmuData) => {
-    const packetSize = 160;
+const rtpPacketize = (pcmuData, samplesPerPacket = 800) => {
     const packets = [];
-    for (let i = 0; i < pcmuData.length; i += packetSize) {
-        packets.push(pcmuData.slice(i, i + packetSize));
+    for (let i = 0; i < pcmuData.length; i += samplesPerPacket) {
+        const packet = pcmuData.slice(i, i + samplesPerPacket);
+        packets.push(new Uint8Array(packet));
     }
     return packets;
 };
