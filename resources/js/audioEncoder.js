@@ -69,27 +69,21 @@ const resample = (input, fromRate, toRate) => {
 };
 
 const encodeToPCMU = async (buffer) => {
-    return new Promise((resolve, reject) => {
-        const wav = lame.WavHeader.readHeader(new DataView(buffer));
+    // Decode the raw audio to PCM
+    const pcmData = new Int16Array(buffer); // Assuming Int16 PCM input
 
-        if (wav.bitsPerSample !== 16) {
-            throw new Error("Only 16-bit PCM audio is supported.");
-        }
+    // Resample to 8 kHz if necessary
+    const resampledPCM =
+        pcmData.length > 0 && pcmData.sampleRate !== 8000
+            ? resample(pcmData, pcmData.sampleRate, 8000)
+            : pcmData;
 
-        const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
+    // Encode PCM data to PCMU
+    const pcMuData = encodeSamplesToPCMU(resampledPCM);
 
-        const resampledSamples =
-            wav.sampleRate !== 8000
-                ? resample(samples, wav.sampleRate, 8000)
-                : samples;
-
-        const pcMuData = encodeSamplesToPCMU(resampledSamples);
-
-        const packetSize = 8000 * 0.02;
-        const packets = sliceIntoPackets(pcMuData, packetSize);
-
-        resolve(packets);
-    });
+    // Slice PCMU data into 20 ms packets (160 samples at 8 kHz)
+    const packetSize = 8000 * 0.02; // 160 samples per packet
+    return sliceIntoPackets(pcMuData, packetSize);
 };
 
 const encodeSamplesToPCMU = (samples) => {
@@ -98,6 +92,34 @@ const encodeSamplesToPCMU = (samples) => {
         pcMuData[i] = linearToMuLaw(samples[i]);
     }
     return pcMuData;
+};
+
+const linearToMuLaw = (sample) => {
+    const SIGN_BIT = 0x80;
+    const QUANT_MASK = 0x0f;
+    const SEG_SHIFT = 4;
+
+    const MAX = 32635;
+    sample = Math.max(-MAX, Math.min(MAX, sample));
+
+    let sign = sample < 0 ? SIGN_BIT : 0;
+    if (sign) sample = -sample;
+
+    sample += 33;
+
+    let exponent = 7;
+    for (
+        let expMask = 0x4000;
+        (sample & expMask) === 0 && exponent > 0;
+        expMask >>= 1
+    ) {
+        exponent--;
+    }
+
+    const mantissa = (sample >> (exponent + 3)) & QUANT_MASK;
+    const muLawSample = ~(sign | (exponent << SEG_SHIFT) | mantissa);
+
+    return muLawSample & 0xff;
 };
 
 const sliceIntoPackets = (data, packetSize) => {
