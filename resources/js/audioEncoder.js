@@ -4,56 +4,25 @@ self.onmessage = async (event) => {
     const { command, data } = event.data;
 
     if (command === "process") {
-        //const mp3Data = await encodeToMP3(arrayBuffer);
-        const pcmuData = await encodeToPCMU(data);
-        self.postMessage({ command: "processed", data: pcmuData });
+        try {
+            // Ensure the data is valid and has the correct byte length
+            if (data.byteLength % 2 !== 0) {
+                console.warn(
+                    "ArrayBuffer byte length is not a multiple of 2. Trimming extra byte."
+                );
+                data = data.slice(0, data.byteLength - (data.byteLength % 2));
+            }
+
+            // Process the input into PCMU packets
+            const pcmuPackets = await encodeToPCMU(data);
+            self.postMessage({ command: "processed", data: pcmuPackets });
+        } catch (error) {
+            console.error("Error processing audio data:", error);
+        }
     }
 };
 
-const encodeToMP3 = (buffer) => {
-    return new Promise((resolve, reject) => {
-        const wav = lame.WavHeader.readHeader(new DataView(buffer));
-        const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
-        const mp3Encoder = new lame.Mp3Encoder(
-            wav.channels,
-            wav.sampleRate,
-            128
-        );
-        const mp3Data = [];
-        let mp3Buffer;
-
-        if (wav.channels == 2) {
-            const leftChannel = [];
-            const rightChannel = [];
-            for (let i = 0; i < samples.length; i += 2) {
-                leftChannel.push(samples[i]);
-                rightChannel.push(samples[i + 1]);
-            }
-
-            mp3Buffer = mp3Encoder.encodeBuffer(leftChannel, rightChannel);
-        } else {
-            mp3Buffer = mp3Encoder.encodeBuffer(samples);
-        }
-
-        if (mp3Buffer.length > 0) {
-            mp3Data.push(mp3Buffer);
-        }
-
-        mp3Buffer = mp3Encoder.flush();
-        if (mp3Buffer.length > 0) {
-            mp3Data.push(mp3Buffer);
-        }
-
-        const blob = new Blob(mp3Data, { type: "audio/mp3" });
-        const reader = new FileReader();
-        reader.onload = () => {
-            const base64data = reader.result.split(",")[1];
-            resolve(base64data);
-        };
-        reader.readAsDataURL(blob);
-    });
-};
-
+// Resample the input PCM data to 8 kHz if necessary
 const resample = (input, fromRate, toRate) => {
     const ratio = fromRate / toRate;
     const outputLength = Math.floor(input.length / ratio);
@@ -67,24 +36,30 @@ const resample = (input, fromRate, toRate) => {
     return output;
 };
 
+// Encode the input audio data to PCMU (G.711 μ-law) format
 const encodeToPCMU = async (buffer) => {
-    // Decode the raw audio to PCM
-    const pcmData = new Int16Array(buffer); // Assuming Int16 PCM input
+    // Convert ArrayBuffer to Int16Array for PCM processing
+    const pcmData = new Int16Array(buffer);
+
+    // Assuming a sample rate (MediaRecorder does not provide sample rate directly)
+    const assumedSampleRate = 48000; // Default assumed MediaRecorder sample rate
+    const targetSampleRate = 8000;
 
     // Resample to 8 kHz if necessary
     const resampledPCM =
-        pcmData.length > 0 && pcmData.sampleRate !== 8000
-            ? resample(pcmData, pcmData.sampleRate, 8000)
+        assumedSampleRate !== targetSampleRate
+            ? resample(pcmData, assumedSampleRate, targetSampleRate)
             : pcmData;
 
     // Encode PCM data to PCMU
     const pcMuData = encodeSamplesToPCMU(resampledPCM);
 
-    // Slice PCMU data into 20 ms packets (160 samples at 8 kHz)
-    const packetSize = 8000 * 0.02; // 160 samples per packet
+    // Slice PCMU data into 20 ms packets (160 samples per packet at 8 kHz)
+    const packetSize = 160; // 20 ms at 8 kHz
     return sliceIntoPackets(pcMuData, packetSize);
 };
 
+// Convert Int16 PCM samples to PCMU (G.711 μ-law)
 const encodeSamplesToPCMU = (samples) => {
     const pcMuData = new Uint8Array(samples.length);
     for (let i = 0; i < samples.length; i++) {
@@ -93,6 +68,7 @@ const encodeSamplesToPCMU = (samples) => {
     return pcMuData;
 };
 
+// Linear PCM to μ-law conversion
 const linearToMuLaw = (sample) => {
     const SIGN_BIT = 0x80;
     const QUANT_MASK = 0x0f;
@@ -121,6 +97,7 @@ const linearToMuLaw = (sample) => {
     return muLawSample & 0xff;
 };
 
+// Slice encoded PCMU data into packets of the specified size
 const sliceIntoPackets = (data, packetSize) => {
     const packets = [];
     for (let i = 0; i < data.length; i += packetSize) {
