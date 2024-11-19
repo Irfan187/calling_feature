@@ -5,6 +5,7 @@ self.onmessage = async (event) => {
 
     if (command === "process") {
         console.log("Data type:", typeof data);
+        console.log(data);
         const arrayBuffer = await data.arrayBuffer();
         //const mp3Data = await encodeToMP3(arrayBuffer);
         const pcmuData = await encodeToPCMU(data);
