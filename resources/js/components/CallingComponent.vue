@@ -62,57 +62,53 @@ const createRTPPacket = (payload) => {
     const extension = 0;
     const csrcCount = 0;
     const marker = 0;
-    const payloadType = 0;
-    const ssrc = 12345;
+    const payloadType = 0; // PCMU (G.711 μ-law)
+    const ssrc = 12345; // Example SSRC
 
+    // RTP Header
     rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
-
     rtpPacket[1] = (marker << 7) | payloadType;
 
+    // Sequence Number
     rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
     rtpPacket[3] = sequenceNumber & 0xff;
     sequenceNumber = (sequenceNumber + 1) % 65536;
 
+    // Timestamp
     rtpPacket[4] = (timestamp >> 24) & 0xff;
     rtpPacket[5] = (timestamp >> 16) & 0xff;
     rtpPacket[6] = (timestamp >> 8) & 0xff;
     rtpPacket[7] = timestamp & 0xff;
-    timestamp += 160;
+    timestamp += 800; // Increment for 100 ms at 8 kHz
 
+    // SSRC
     rtpPacket[8] = (ssrc >> 24) & 0xff;
     rtpPacket[9] = (ssrc >> 16) & 0xff;
     rtpPacket[10] = (ssrc >> 8) & 0xff;
     rtpPacket[11] = ssrc & 0xff;
 
+    // Payload
     rtpPacket.set(payload, HEADER_SIZE);
 
     return rtpPacket;
 };
 
-const encodeRTPToBase64 = (rtpPacket) => {
-    return btoa(String.fromCharCode(...rtpPacket));
-};
+const encodeRTPToBase64 = (rtpPacket) => btoa(String.fromCharCode(...rtpPacket));
 
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
 
-    if (command === 'processed') {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            if (Array.isArray(data)) {
-                for (const pcmuPacket of data) {
-                    const rtpPacket = createRTPPacket(pcmuPacket);
-                    const base64Payload = encodeRTPToBase64(rtpPacket);
-                    const payload = {
-                        event: "media",
-                        media: {
-                            payload: base64Payload
-                        }
-                    };
-                    ws.send(JSON.stringify(payload));
-                }
-            } else {
-                console.warn("Expected an array of PCMU packets but received:", data);
-            }
+    if (command === "processed") {
+        for (const pcmuPacket of data) {
+            const rtpPacket = createRTPPacket(pcmuPacket);
+            const base64Payload = encodeRTPToBase64(rtpPacket);
+
+            const payload = {
+                event: "media",
+                media: { payload: base64Payload }
+            };
+
+            ws.send(JSON.stringify(payload));
         }
     }
 };

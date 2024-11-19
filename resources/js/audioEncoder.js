@@ -11,23 +11,25 @@ self.onmessage = async (event) => {
 
             const newBuffer = new Uint8Array(data);
 
-            // Accumulate the buffer
+            // Accumulate incoming data
             const combinedBuffer = new Uint8Array(
                 pcmBuffer.length + newBuffer.length
             );
             combinedBuffer.set(pcmBuffer);
             combinedBuffer.set(newBuffer, pcmBuffer.length);
 
-            // Ensure buffer is aligned to a multiple of 2
-            const alignedLength =
-                combinedBuffer.length - (combinedBuffer.length % 2);
-            const alignedBuffer = combinedBuffer.subarray(0, alignedLength);
+            // Ensure enough data for 100 ms chunks at 48 kHz
+            const chunkSize = 4800; // 100 ms at 48 kHz
+            const processableLength =
+                Math.floor(combinedBuffer.length / chunkSize) * chunkSize;
+            const processableData = combinedBuffer.subarray(
+                0,
+                processableLength
+            );
+            pcmBuffer = combinedBuffer.subarray(processableLength); // Save residual data
 
-            // Save residual data
-            pcmBuffer = combinedBuffer.subarray(alignedLength);
-
-            // Convert to Int16Array
-            const pcmData = new Int16Array(alignedBuffer.buffer);
+            // Convert to Int16 PCM
+            const pcmData = new Int16Array(processableData.buffer);
 
             // Resample to 8 kHz
             const resampledPCM = resample(pcmData, 48000, 8000);
@@ -35,8 +37,9 @@ self.onmessage = async (event) => {
             // Encode to PCMU
             const pcMuData = encodeSamplesToPCMU(resampledPCM);
 
-            // Slice into packets
-            const packets = sliceIntoPackets(pcMuData, 160);
+            // Ensure 100 ms packet (800 samples at 8 kHz)
+            const packetSize = 800; // 100 ms at 8 kHz
+            const packets = sliceIntoPackets(pcMuData, packetSize);
 
             self.postMessage({ command: "processed", data: packets });
         } catch (error) {
@@ -45,26 +48,21 @@ self.onmessage = async (event) => {
     }
 };
 
-// Resample the input PCM data to 8 kHz if necessary
+// Resample PCM data to 8 kHz
 const resample = (input, fromRate, toRate) => {
     const ratio = fromRate / toRate;
     const outputLength = Math.floor(input.length / ratio);
-
-    console.log("Resampling from", fromRate, "to", toRate);
-    console.log("Input length:", input.length);
-
     const output = new Int16Array(outputLength);
+
     for (let i = 0; i < outputLength; i++) {
         const nearestSample = Math.round(i * ratio);
         output[i] = input[nearestSample] || 0;
     }
 
-    console.log("Output length:", output.length);
-
     return output;
 };
 
-// Convert Int16 PCM samples to PCMU (G.711 μ-law)
+// Encode Int16 PCM to PCMU
 const encodeSamplesToPCMU = (samples) => {
     const pcMuData = new Uint8Array(samples.length);
     for (let i = 0; i < samples.length; i++) {
@@ -73,7 +71,6 @@ const encodeSamplesToPCMU = (samples) => {
     return pcMuData;
 };
 
-// Linear PCM to μ-law conversion
 const linearToMuLaw = (sample) => {
     const SIGN_BIT = 0x80;
     const QUANT_MASK = 0x0f;
@@ -102,18 +99,11 @@ const linearToMuLaw = (sample) => {
     return muLawSample & 0xff;
 };
 
-// Slice encoded PCMU data into packets of the specified size
+// Slice PCMU into 100 ms packets
 const sliceIntoPackets = (data, packetSize) => {
     const packets = [];
     for (let i = 0; i < data.length; i += packetSize) {
-        const packet = data.subarray(i, i + packetSize);
-        packets.push(packet);
-
-        if (packet.length !== packetSize) {
-            console.warn("Packet with incorrect size:", packet.length);
-        }
+        packets.push(data.subarray(i, i + packetSize));
     }
-
-    console.log("Total packets:", packets.length);
     return packets;
 };
