@@ -95,14 +95,20 @@ const startRecording = async () => {
 
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
-    mediaRecorder.addEventListener('dataavailable', async (event) => {
+    mediaRecorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0) {
-            try {
-                const audioChunk = await event.data.arrayBuffer();
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                const audioChunk = reader.result;
                 audioEncoder.postMessage({ command: 'process', data: audioChunk });
-            } catch (error) {
-                console.error("Error converting Blob to ArrayBuffer:", error);
-            }
+            };
+
+            reader.onerror = (error) => {
+                console.error("Error reading Blob as ArrayBuffer:", error);
+            };
+
+            reader.readAsArrayBuffer(event.data);
         } else {
             console.warn("Empty audio chunk received.");
         }
