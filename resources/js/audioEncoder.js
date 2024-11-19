@@ -32,14 +32,25 @@ self.onmessage = async (event) => {
 
 const accumulatePCMData = (newData) => {
     const chunkSize = 4800; // 100 ms at 48 kHz
+
+    // Combine the residual buffer with the new data
     const combinedBuffer = new Uint8Array(pcmBuffer.length + newData.length);
     combinedBuffer.set(pcmBuffer);
     combinedBuffer.set(newData, pcmBuffer.length);
 
+    // Align the buffer length to a multiple of 2
+    if (combinedBuffer.length % 2 !== 0) {
+        console.warn("Aligning buffer length to a multiple of 2.");
+        combinedBuffer = combinedBuffer.slice(0, combinedBuffer.length - 1);
+    }
+
+    // Calculate the number of processable samples
     const processableLength =
         Math.floor(combinedBuffer.length / chunkSize) * chunkSize;
     const processableData = combinedBuffer.subarray(0, processableLength);
-    pcmBuffer = combinedBuffer.subarray(processableLength); // Save residual data
+
+    // Save residual data for the next cycle
+    pcmBuffer = combinedBuffer.subarray(processableLength);
 
     return processableData;
 };
