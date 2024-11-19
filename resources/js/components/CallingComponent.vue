@@ -11,7 +11,7 @@
         </div>
 
         <button type="button" class="btn btn-primary" @click="makeCall">Make Call</button>
-        <br><br>
+        <!-- <br><br>
         <button type="button" class="btn btn-primary" @click="startCallRecording">start Call Recording</button>
         <br><br>
         <button type="button" class="btn btn-primary" @click="endCallRecording">end Call Recording</button>
@@ -21,7 +21,7 @@
             <h2 class="text-center">Conference Call</h2>
             <button type="button" class="btn btn-primary" @click="createConference">Create Conference</button><br><br>
             <button v-show="conference_created" @click="joinConference">Join Conference</button>
-        </div>
+        </div> -->
 
         <div class="my-3">
             <div>{{ callStatus }}</div>
@@ -50,72 +50,17 @@ let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { 
 const conference_created = ref(false);
 const conference_id = ref();
 
-let sequenceNumber = 0;
-let timestamp = 0;
-
-const createRTPPacket = (payload) => {
-    const HEADER_SIZE = 12;
-    const rtpPacket = new Uint8Array(HEADER_SIZE + payload.length);
-
-    const version = 2;
-    const padding = 0;
-    const extension = 0;
-    const csrcCount = 0;
-    const marker = 0;
-    const payloadType = 0; // PCMU
-    const ssrc = 12345; // Example SSRC
-
-    // RTP Header
-    rtpPacket[0] = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
-    rtpPacket[1] = (marker << 7) | payloadType;
-
-    rtpPacket[2] = (sequenceNumber >> 8) & 0xff;
-    rtpPacket[3] = sequenceNumber & 0xff;
-    sequenceNumber = (sequenceNumber + 1) % 65536;
-
-    rtpPacket[4] = (timestamp >> 24) & 0xff;
-    rtpPacket[5] = (timestamp >> 16) & 0xff;
-    rtpPacket[6] = (timestamp >> 8) & 0xff;
-    rtpPacket[7] = timestamp & 0xff;
-    timestamp += 800; // Increment for 100 ms at 8 kHz
-
-    rtpPacket[8] = (ssrc >> 24) & 0xff;
-    rtpPacket[9] = (ssrc >> 16) & 0xff;
-    rtpPacket[10] = (ssrc >> 8) & 0xff;
-    rtpPacket[11] = ssrc & 0xff;
-
-    // Payload
-    rtpPacket.set(payload, HEADER_SIZE);
-
-    // Debug log
-    console.log("RTP Packet Length:", rtpPacket.length);
-    console.log("Payload Length:", payload.length);
-
-    console.log("RTP Payload (first 10 bytes):", payload.slice(0, 10));
-    console.log("RTP Payload Length:", payload.length);
-    return rtpPacket;
-};
-
-const encodeRTPToBase64 = (rtpPacket) => {
-    const base64 = btoa(String.fromCharCode(...rtpPacket));
-    console.log("Base64 Encoded RTP Length:", base64.length);
-    return base64;
-};
-
 audioEncoder.onmessage = async (event) => {
     const { command, data } = event.data;
 
-    if (command === "processed") {
-        for (const pcmuPacket of data) {
-            console.log(pcmuPacket);
-            const rtpPacket = createRTPPacket(pcmuPacket);
-            const base64Payload = encodeRTPToBase64(rtpPacket);
-
-            const payload = {
-                event: "media",
-                media: { payload: base64Payload }
+    if (command === 'processed') {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            let payload = {
+                "event": "media",
+                "media": {
+                    "payload": data
+                }
             };
-
             ws.send(JSON.stringify(payload));
         }
     }
@@ -173,7 +118,6 @@ const answerCall = async () => {
         console.error('Error making call:', error);
     }
 };
-
 
 const createConference = async () => {
     const data = {
@@ -310,32 +254,30 @@ const handleStopEvent = (stopData) => {
 
 const startRecording = async () => {
     await register(await connect());
-
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav', audioChannels: 1 });
 
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mediaRecorder.addEventListener('dataavailable', event => {
+        audioChunks.push(event.data);
+    });
 
-    mediaRecorder.addEventListener('dataavailable', (event) => {
-        if (event.data.size > 0) {
-            const reader = new FileReader();
-
-            reader.onload = () => {
-                const audioChunk = reader.result;
-                audioEncoder.postMessage({ command: 'process', data: audioChunk });
-            };
-
-            reader.onerror = (error) => {
-                console.error("Error reading Blob as ArrayBuffer:", error);
-            };
-
-            reader.readAsArrayBuffer(event.data);
-        } else {
-            console.warn("Empty audio chunk received.");
+    mediaRecorder.addEventListener('stop', async () => {
+        if (audioChunks.length > 0) {
+            const audioData = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = [];
+            audioEncoder.postMessage({ command: 'process', data: audioData });
         }
     });
 
-    mediaRecorder.start(100);
-};
+    mediaRecorder.start();
+
+    recordingInterval = setInterval(() => {
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            mediaRecorder.start();
+        }
+    }, 1000);
+}
 
 const stopRecording = () => {
     mediaRecorder.stop();

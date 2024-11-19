@@ -1,119 +1,55 @@
-let pcmBuffer = new Uint8Array();
-let residualPCMU = new Uint8Array();
+import * as lame from "@breezystack/lamejs";
 
 self.onmessage = async (event) => {
     const { command, data } = event.data;
 
     if (command === "process") {
-        try {
-            // Accumulate input PCM data
-            const processablePCM = accumulatePCMData(new Uint8Array(data));
-            if (processablePCM.length === 0) return;
+        const arrayBuffer = await data.arrayBuffer();
+        const mp3Data = await encodeToMP3(arrayBuffer);
+        self.postMessage({ command: "processed", data: mp3Data });
+    }
+};
 
-            // Convert to Int16 PCM
-            const pcmData = new Int16Array(processablePCM.buffer);
+const encodeToMP3 = (buffer) => {
+    return new Promise((resolve, reject) => {
+        const wav = lame.WavHeader.readHeader(new DataView(buffer));
+        const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
+        const mp3Encoder = new lame.Mp3Encoder(
+            wav.channels,
+            wav.sampleRate,
+            128
+        );
+        const mp3Data = [];
+        let mp3Buffer;
 
-            // Resample to 8 kHz
-            const resampledPCM = resample(pcmData, 48000, 8000);
+        if (wav.channels == 2) {
+            const leftChannel = [];
+            const rightChannel = [];
+            for (let i = 0; i < samples.length; i += 2) {
+                leftChannel.push(samples[i]);
+                rightChannel.push(samples[i + 1]);
+            }
 
-            // Encode to PCMU
-            const pcMuData = encodeSamplesToPCMU(resampledPCM);
-
-            // Slice into 800-byte packets
-            const packets = sliceIntoPackets(pcMuData, 800);
-
-            // Post the packets back to the main thread
-            self.postMessage({ command: "processed", data: packets });
-        } catch (error) {
-            console.error("Error processing audio data:", error);
+            mp3Buffer = mp3Encoder.encodeBuffer(leftChannel, rightChannel);
+        } else {
+            mp3Buffer = mp3Encoder.encodeBuffer(samples);
         }
-    }
-};
 
-const accumulatePCMData = (newData) => {
-    const chunkSize = 4800; // 100 ms at 48 kHz
+        if (mp3Buffer.length > 0) {
+            mp3Data.push(mp3Buffer);
+        }
 
-    // Combine the residual buffer with the new data
-    let combinedBuffer = new Uint8Array(pcmBuffer.length + newData.length);
-    combinedBuffer.set(pcmBuffer);
-    combinedBuffer.set(newData, pcmBuffer.length);
+        mp3Buffer = mp3Encoder.flush();
+        if (mp3Buffer.length > 0) {
+            mp3Data.push(mp3Buffer);
+        }
 
-    // Align the buffer length to a multiple of 2
-    if (combinedBuffer.length % 2 !== 0) {
-        console.warn("Aligning buffer length to a multiple of 2.");
-        combinedBuffer = combinedBuffer.slice(0, combinedBuffer.length - 1);
-    }
-
-    // Calculate the number of processable samples
-    const processableLength =
-        Math.floor(combinedBuffer.length / chunkSize) * chunkSize;
-    const processableData = combinedBuffer.subarray(0, processableLength);
-
-    // Save residual data for the next cycle
-    pcmBuffer = combinedBuffer.subarray(processableLength);
-
-    return processableData;
-};
-
-const resample = (input, fromRate, toRate) => {
-    const ratio = fromRate / toRate;
-    const outputLength = Math.floor(input.length / ratio);
-
-    const output = new Int16Array(outputLength);
-    for (let i = 0; i < outputLength; i++) {
-        const nearestSample = Math.round(i * ratio);
-        output[i] = input[nearestSample] || 0;
-    }
-
-    return output;
-};
-
-const encodeSamplesToPCMU = (samples) => {
-    const pcMuData = new Uint8Array(samples.length);
-    for (let i = 0; i < samples.length; i++) {
-        pcMuData[i] = linearToMuLaw(samples[i]);
-    }
-    return pcMuData;
-};
-
-const linearToMuLaw = (sample) => {
-    const SIGN_BIT = 0x80;
-    const QUANT_MASK = 0x0f;
-    const SEG_SHIFT = 4;
-    const MAX = 32635;
-
-    sample = Math.max(-MAX, Math.min(MAX, sample));
-    let sign = sample < 0 ? SIGN_BIT : 0;
-    if (sign) sample = -sample;
-
-    sample += 33;
-
-    let exponent = 7;
-    for (
-        let expMask = 0x4000;
-        (sample & expMask) === 0 && exponent > 0;
-        expMask >>= 1
-    ) {
-        exponent--;
-    }
-
-    const mantissa = (sample >> (exponent + 3)) & QUANT_MASK;
-    return ~(sign | (exponent << SEG_SHIFT) | mantissa) & 0xff;
-};
-
-const sliceIntoPackets = (data, packetSize) => {
-    const combinedData = new Uint8Array(residualPCMU.length + data.length);
-    combinedData.set(residualPCMU);
-    combinedData.set(data, residualPCMU.length);
-
-    const totalPackets = Math.floor(combinedData.length / packetSize);
-    const processableLength = totalPackets * packetSize;
-
-    const packets = [];
-    for (let i = 0; i < processableLength; i += packetSize) {
-        packets.push(combinedData.subarray(i, i + packetSize));
-    }
-
-    residualPCMU = combinedData.subarray(processableLength);
-    return packets;
+        const blob = new Blob(mp3Data, { type: "audio/mp3" });
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64data = reader.result.split(",")[1];
+            resolve(base64data);
+        };
+        reader.readAsDataURL(blob);
+    });
 };
