@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from "vue";
+import FFmpeg from "@ffmpeg/ffmpeg";
 
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-let mediaRecorder = null;
-let audioChunks = [];
+const ffmpeg = FFmpeg.createFFmpeg({ log: true });
 const isRecording = ref(false);
 const outputBase64RTP = ref("");
+
+let mediaRecorder = null;
 
 const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -15,22 +16,16 @@ const startRecording = async () => {
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const source = audioContext.createMediaStreamSource(stream);
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
 
-        // Setup a loop-back test
-        const destination = audioContext.destination;
-        source.connect(destination);
-
-        // Initialize MediaRecorder
-        mediaRecorder = new MediaRecorder(stream);
         mediaRecorder.ondataavailable = async (event) => {
-            const pcmuBase64 = await processAudioChunk(event.data);
-            if (pcmuBase64) {
-                outputBase64RTP.value += pcmuBase64 + "\n";
+            const base64RTP = await processAudioChunkWithFFmpeg(event.data);
+            if (base64RTP) {
+                outputBase64RTP.value += base64RTP + "\n";
             }
         };
 
-        mediaRecorder.start(100); // Capture audio in chunks of 100ms
+        mediaRecorder.start(100); // Record in 100ms chunks
         isRecording.value = true;
     } catch (error) {
         console.error("Error accessing microphone:", error);
@@ -44,40 +39,33 @@ const stopRecording = () => {
     }
 };
 
-const processAudioChunk = async (audioBlob) => {
+const processAudioChunkWithFFmpeg = async (audioBlob) => {
     try {
         const arrayBuffer = await audioBlob.arrayBuffer();
-        const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
+        const inputFileName = "input.webm";
+        const outputFileName = "output.raw";
 
-        // Resample to 8 kHz and convert to PCM
-        const offlineContext = new OfflineAudioContext(
-            1, // Mono channel
-            Math.ceil(decodedAudio.duration * 8000),
-            8000 // 8 kHz sample rate
-        );
+        await ffmpeg.load();
+        ffmpeg.FS("writeFile", inputFileName, new Uint8Array(arrayBuffer));
 
-        const source = offlineContext.createBufferSource();
-        source.buffer = decodedAudio;
-        source.connect(offlineContext.destination);
-        source.start(0);
+        // Convert to raw PCM at 8 kHz
+        await ffmpeg.run("-i", inputFileName, "-ar", "8000", "-ac", "1", "-f", "s16le", outputFileName);
 
-        const resampledBuffer = await offlineContext.startRendering();
-        const pcmData = resampledBuffer.getChannelData(0);
+        const output = ffmpeg.FS("readFile", outputFileName);
+        const pcmData = new Float32Array(output.buffer);
 
-        // Convert to PCMU
+        // Convert PCM to PCMU
         const pcmuData = pcmData.map((sample) => {
             const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
             return sample < 0 ? -mulawSample : mulawSample;
         });
 
-        // Create RTP packet (100ms = 800 samples for 8 kHz)
+        // Create RTP packets and encode to Base64
         const packet = pcmuData.slice(0, 800);
         const rtpPacket = new Uint8Array(packet);
-
-        // Convert RTP packet to Base64
         return btoa(String.fromCharCode(...rtpPacket));
     } catch (error) {
-        console.error("Error processing audio chunk:", error);
+        console.error("Error processing audio chunk with FFmpeg:", error);
         return null;
     }
 };

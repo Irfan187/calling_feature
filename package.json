@@ -15,6 +15,7 @@
     "dependencies": {
         "@breezystack/lamejs": "^1.2.7",
         "@ffmpeg-installer/ffmpeg": "^1.1.0",
+        "@ffmpeg/ffmpeg": "^0.12.10",
         "body-parser": "^1.20.2",
         "express": "^4.19.2",
         "extendable-media-recorder": "^9.2.9",
