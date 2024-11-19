@@ -116,10 +116,18 @@ const designFIRFilter = (length, cutoff, sampleRate) => {
 };
 
 const convertToPCMU = (buffer) => {
-    return buffer.map((sample) => {
-        const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
-        return sample < 0 ? -mulawSample : mulawSample;
-    });
+    const PCM_MAX = 32767; // Maximum PCM value
+    const PCM_MIN = -32768; // Minimum PCM value
+
+    const muLawEncode = (sample) => {
+        const MU = 255;
+        const clamped = Math.max(Math.min(sample, PCM_MAX), PCM_MIN);
+        const magnitude = Math.log(1 + MU * Math.abs(clamped / PCM_MAX)) / Math.log(1 + MU);
+        const sign = clamped < 0 ? 0 : 0x80;
+        return ~(sign | (magnitude * 0x7F));
+    };
+
+    return new Uint8Array(buffer.map((sample) => muLawEncode(sample * PCM_MAX)));
 };
 
 const rtpPacketize = (pcmuData) => {
