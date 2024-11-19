@@ -57,59 +57,53 @@ const encodeToMP3 = (buffer) => {
 
 const resample = (input, fromRate, toRate) => {
     const ratio = fromRate / toRate;
-    const output = new Float32Array(Math.floor(input.length / ratio));
+    const outputLength = Math.floor(input.length / ratio);
 
-    for (let i = 0; i < output.length; i++) {
-        output[i] = input[Math.round(i * ratio)];
+    const output = new Int16Array(outputLength);
+    for (let i = 0; i < outputLength; i++) {
+        const nearestSample = Math.round(i * ratio);
+        output[i] = input[nearestSample] || 0;
     }
 
-    return Int16Array.from(
-        output.map((val) => Math.max(-32768, Math.min(32767, val)))
-    );
+    return output;
 };
 
 const encodeToPCMU = async (buffer) => {
-    const wav = lame.WavHeader.readHeader(new DataView(buffer));
-    const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
+    return new Promise((resolve, reject) => {
+        const wav = lame.WavHeader.readHeader(new DataView(buffer));
 
-    const resampledSamples =
-        wav.sampleRate !== 8000
-            ? resample(samples, wav.sampleRate, 8000)
-            : samples;
+        if (wav.bitsPerSample !== 16) {
+            throw new Error("Only 16-bit PCM audio is supported.");
+        }
 
-    const pcMuData = new Uint8Array(resampledSamples.length);
-    for (let i = 0; i < resampledSamples.length; i++) {
-        pcMuData[i] = linearToMuLaw(resampledSamples[i]);
+        const samples = new Int16Array(buffer, wav.dataOffset, wav.dataLen / 2);
+
+        const resampledSamples =
+            wav.sampleRate !== 8000
+                ? resample(samples, wav.sampleRate, 8000)
+                : samples;
+
+        const pcMuData = encodeSamplesToPCMU(resampledSamples);
+
+        const packetSize = 8000 * 0.02;
+        const packets = sliceIntoPackets(pcMuData, packetSize);
+
+        resolve(packets);
+    });
+};
+
+const encodeSamplesToPCMU = (samples) => {
+    const pcMuData = new Uint8Array(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+        pcMuData[i] = linearToMuLaw(samples[i]);
     }
-
     return pcMuData;
 };
 
-const linearToMuLaw = (sample) => {
-    const SIGN_BIT = 0x80;
-    const QUANT_MASK = 0x0f;
-    const SEG_SHIFT = 4;
-    const SEG_MASK = 0x70;
-
-    const MAX = 32635;
-    sample = Math.max(-MAX, Math.min(MAX, sample));
-
-    let sign = sample < 0 ? SIGN_BIT : 0;
-    if (sign) sample = -sample;
-
-    sample += 33;
-
-    let exponent = 7;
-    for (
-        let expMask = 0x4000;
-        (sample & expMask) === 0 && exponent > 0;
-        expMask >>= 1
-    ) {
-        exponent--;
+const sliceIntoPackets = (data, packetSize) => {
+    const packets = [];
+    for (let i = 0; i < data.length; i += packetSize) {
+        packets.push(data.subarray(i, i + packetSize));
     }
-
-    const mantissa = (sample >> (exponent + 3)) & QUANT_MASK;
-    const muLawSample = ~(sign | (exponent << SEG_SHIFT) | mantissa);
-
-    return muLawSample & 0xff;
+    return packets;
 };

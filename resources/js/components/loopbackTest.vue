@@ -90,30 +90,20 @@ const handleStopEvent = () => {
 
 const startRecording = async () => {
     await register(await connect());
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
 
-    mediaRecorder.addEventListener('dataavailable', event => {
-        audioChunks.push(event.data);
-    });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
-    mediaRecorder.addEventListener('stop', async () => {
-        if (audioChunks.length > 0) {
-            const audioData = new Blob(audioChunks, { type: 'audio/wav' });
-            audioChunks = [];
-            audioEncoder.postMessage({ command: 'process', data: audioData });
+    mediaRecorder.addEventListener('dataavailable', async (event) => {
+        if (event.data.size > 0) {
+            const audioBlob = event.data;
+            audioEncoder.postMessage({ command: 'process', data: audioBlob });
         }
     });
 
-    mediaRecorder.start();
-
-    setInterval(() => {
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            mediaRecorder.start();
-        }
-    }, 20);
-}
+    mediaRecorder.start(100);
+};
 
 const stopRecording = () => {
     mediaRecorder.stop();
