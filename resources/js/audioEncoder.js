@@ -22,11 +22,16 @@ const resample = (input, fromRate, toRate) => {
     const ratio = fromRate / toRate;
     const outputLength = Math.floor(input.length / ratio);
 
+    console.log("Resampling from", fromRate, "to", toRate);
+    console.log("Input length:", input.length);
+
     const output = new Int16Array(outputLength);
     for (let i = 0; i < outputLength; i++) {
         const nearestSample = Math.round(i * ratio);
         output[i] = input[nearestSample] || 0;
     }
+
+    console.log("Output length:", output.length);
 
     return output;
 };
@@ -35,7 +40,8 @@ const resample = (input, fromRate, toRate) => {
 const encodeToPCMU = async (buffer) => {
     // Convert ArrayBuffer to Int16Array for PCM processing
     const pcmData = new Int16Array(buffer);
-
+    console.log("Input PCM data length:", pcmData.length);
+    
     // Assuming a sample rate (MediaRecorder does not provide sample rate directly)
     const assumedSampleRate = 48000; // Default assumed MediaRecorder sample rate
     const targetSampleRate = 8000;
@@ -96,7 +102,14 @@ const linearToMuLaw = (sample) => {
 const sliceIntoPackets = (data, packetSize) => {
     const packets = [];
     for (let i = 0; i < data.length; i += packetSize) {
-        packets.push(data.subarray(i, i + packetSize));
+        const packet = data.subarray(i, i + packetSize);
+        packets.push(packet);
+
+        if (packet.length !== packetSize) {
+            console.warn("Packet with incorrect size:", packet.length);
+        }
     }
+
+    console.log("Total packets:", packets.length);
     return packets;
 };
