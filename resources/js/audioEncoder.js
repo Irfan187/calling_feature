@@ -5,29 +5,38 @@ self.onmessage = async (event) => {
 
     if (command === "process") {
         try {
+            if (data.byteLength % 2 !== 0) {
+                data = data.slice(0, data.byteLength - 1);
+            }
+
             const newBuffer = new Uint8Array(data);
+
+            // Accumulate the buffer
             const combinedBuffer = new Uint8Array(
                 pcmBuffer.length + newBuffer.length
             );
             combinedBuffer.set(pcmBuffer);
             combinedBuffer.set(newBuffer, pcmBuffer.length);
 
-            // Ensure the buffer length is a multiple of 2
-            const processableLength =
+            // Ensure buffer is aligned to a multiple of 2
+            const alignedLength =
                 combinedBuffer.length - (combinedBuffer.length % 2);
-            const processableData = combinedBuffer.subarray(
-                0,
-                processableLength
-            );
+            const alignedBuffer = combinedBuffer.subarray(0, alignedLength);
 
             // Save residual data
-            pcmBuffer = combinedBuffer.subarray(processableLength);
+            pcmBuffer = combinedBuffer.subarray(alignedLength);
 
-            // Process aligned PCM data
-            const pcmData = new Int16Array(processableData.buffer);
+            // Convert to Int16Array
+            const pcmData = new Int16Array(alignedBuffer.buffer);
+
+            // Resample to 8 kHz
             const resampledPCM = resample(pcmData, 48000, 8000);
+
+            // Encode to PCMU
             const pcMuData = encodeSamplesToPCMU(resampledPCM);
-            const packets = sliceIntoPackets(pcMuData, 160); // 160 samples per packet (20 ms at 8 kHz)
+
+            // Slice into packets
+            const packets = sliceIntoPackets(pcMuData, 160);
 
             self.postMessage({ command: "processed", data: packets });
         } catch (error) {
