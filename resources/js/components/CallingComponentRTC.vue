@@ -76,30 +76,42 @@ const downsampleBuffer = (buffer, inputSampleRate, outputSampleRate) => {
     if (outputSampleRate === inputSampleRate) {
         return buffer;
     }
-
-    const sampleRatio = inputSampleRate / outputSampleRate;
-    const newLength = Math.round(buffer.length / sampleRatio);
+    const ratio = inputSampleRate / outputSampleRate;
+    const newLength = Math.ceil(buffer.length / ratio);
     const downsampledBuffer = new Float32Array(newLength);
 
+    let offset = 0;
     for (let i = 0; i < newLength; i++) {
-        const index = Math.round(i * sampleRatio);
-        downsampledBuffer[i] = buffer[index];
+        const pos = i * ratio;
+        const left = Math.floor(pos);
+        const right = Math.min(left + 1, buffer.length - 1);
+        const alpha = pos - left;
+        downsampledBuffer[i] = buffer[left] + alpha * (buffer[right] - buffer[left]);
     }
-
     return downsampledBuffer;
 };
 
 const convertToPCMU = (buffer) => {
+    const MULAW_MAX = 0x7F;
+    const MULAW_BIAS = 132;
+
     return buffer.map((sample) => {
-        const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
-        return sample < 0 ? -mulawSample : mulawSample;
+        let sign = sample < 0 ? -1 : 1;
+        sample = Math.min(Math.abs(sample), 1) * 32767; // Convert to 16-bit PCM
+        sample = Math.log(1 + MULAW_BIAS * sample / 32767) / Math.log(1 + MULAW_BIAS);
+        sample = Math.round(sign * sample * MULAW_MAX);
+        return (sample + MULAW_MAX) & 0xFF; // Unsigned 8-bit value
     });
 };
 
+
 const rtpPacketize = (pcmuData) => {
-    const packetSize = 800;
-    const packet = pcmuData.slice(0, packetSize);
-    return new Uint8Array(packet);
+    const packetSize = 160;
+    const packets = [];
+    for (let i = 0; i < pcmuData.length; i += packetSize) {
+        packets.push(pcmuData.slice(i, i + packetSize));
+    }
+    return packets;
 };
 
 const encodeToBase64 = (data) => {
