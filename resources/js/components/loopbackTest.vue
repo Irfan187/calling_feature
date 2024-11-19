@@ -121,10 +121,44 @@ const stopRecording = () => {
     clearInterval(recordingInterval);
 }
 
+const extractPCMU = (rtpPacket) => {
+    const HEADER_SIZE = 12;
+    return rtpPacket.slice(HEADER_SIZE); // Remove the RTP header
+};
+
+const muLawToLinear = (muLaw) => {
+    const SIGN_BIT = 0x80;
+    const QUANT_MASK = 0x0f;
+    const SEG_SHIFT = 4;
+
+    muLaw = ~muLaw;
+    const sign = (muLaw & SIGN_BIT) ? -1 : 1;
+    const exponent = (muLaw & 0x70) >> SEG_SHIFT;
+    const mantissa = muLaw & QUANT_MASK;
+
+    let sample = ((1 << (exponent + 3)) + (mantissa << (exponent + 3))) - 33;
+    return sign * sample;
+};
+
+const decodePCMUToPCM = (pcmuData) => {
+    const pcmData = new Int16Array(pcmuData.length);
+    for (let i = 0; i < pcmuData.length; i++) {
+        pcmData[i] = muLawToLinear(pcmuData[i]);
+    }
+    return pcmData;
+};
+
+const pcmToFloat32 = (pcmData) => {
+    const floatData = new Float32Array(pcmData.length);
+    for (let i = 0; i < pcmData.length; i++) {
+        floatData[i] = pcmData[i] / 32768; // Normalize to [-1.0, 1.0]
+    }
+    return floatData;
+};
 const playAudio = async (base64Data) => {
     return new Promise((resolve, reject) => {
         try {
-            // Step 1: Decode base64 data to binary data
+            // Step 1: Decode base64 data to binary
             const binaryString = atob(base64Data);
             const len = binaryString.length;
             const arrayBuffer = new ArrayBuffer(len);
@@ -134,27 +168,33 @@ const playAudio = async (base64Data) => {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
 
-            // Step 2: Decode the audio data
-            audioContext.decodeAudioData(arrayBuffer, (audioBuffer) => {
-                // Step 3: Play the audio
-                const source = audioContext.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioContext.destination);
-                source.start(0);
+            // Step 2: Extract PCMU payload
+            const pcmuPayload = extractPCMU(uint8Array);
 
-                // Step 4: Resolve the promise when the audio finishes playing
-                source.onended = () => {
-                    resolve();
-                };
-            }, (error) => {
-                reject('Error decoding audio data: ' + error);
-            });
+            // Step 3: Decode PCMU to PCM
+            const pcmData = decodePCMUToPCM(pcmuPayload);
+
+            // Step 4: Convert PCM to Float32
+            const floatData = pcmToFloat32(pcmData);
+
+            // Step 5: Create an AudioBuffer and play it
+            const audioBuffer = audioContext.createBuffer(1, floatData.length, 8000); // Mono, 8 kHz
+            audioBuffer.copyToChannel(floatData, 0, 0);
+
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+
+            // Resolve when the audio finishes
+            source.onended = () => {
+                resolve();
+            };
         } catch (error) {
-            reject('Error processing audio data: ' + error);
+            reject("Error processing audio data: " + error);
         }
     });
 };
-
 
 
 </script>
