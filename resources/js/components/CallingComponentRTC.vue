@@ -54,21 +54,16 @@ const startRecording = async () => {
         processor.onaudioprocess = (event) => {
             const inputBuffer = event.inputBuffer.getChannelData(0);
             const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, sampleRate);
-            const pcmuData = convertToPCMU(downsampledBuffer);
+            const pcmuPacket = convertToPCMU(downsampledBuffer);
+            const rtpPacketBase64 = encodeToBase64(rtpPacketize(pcmuPacket));
 
-            const SAMPLES_PER_PACKET = 160;
-            const rtpPackets = rtpPacketize(pcmuData, SAMPLES_PER_PACKET);
-
-            rtpPackets.forEach((packet) => {
-                const base64Packet = encodeToBase64(packet);
-                const payload = {
-                    event: "media",
-                    media: {
-                        payload: base64Packet,
-                    },
-                };
-                ws.send(JSON.stringify(payload));
-            });
+            let payload = {
+                "event": "media",
+                "media": {
+                    "payload": rtpPacketBase64
+                }
+            };
+            ws.send(JSON.stringify(payload));
         };
 
         sourceNode.connect(processor);
@@ -81,81 +76,43 @@ const downsampleBuffer = (buffer, inputSampleRate, outputSampleRate) => {
     if (outputSampleRate === inputSampleRate) {
         return buffer;
     }
-    const ratio = inputSampleRate / outputSampleRate;
-    const newLength = Math.ceil(buffer.length / ratio);
+
+    const sampleRatio = inputSampleRate / outputSampleRate;
+    const newLength = Math.round(buffer.length / sampleRatio);
     const downsampledBuffer = new Float32Array(newLength);
 
-    let offset = 0;
-    for (let i = 0; i < newLength; i++) {
-        const pos = i * ratio;
-        const left = Math.floor(pos);
-        const right = Math.min(left + 1, buffer.length - 1);
-        const alpha = pos - left;
-        downsampledBuffer[i] = buffer[left] + alpha * (buffer[right] - buffer[left]);
+    // Apply a simple low-pass filter
+    const cutoff = outputSampleRate / 2; // Nyquist frequency
+    const rc = 1.0 / (2 * Math.PI * cutoff);
+    const dt = 1.0 / inputSampleRate;
+    const alpha = dt / (rc + dt);
+
+    let previous = 0;
+    for (let i = 0; i < buffer.length; i++) {
+        previous += alpha * (buffer[i] - previous);
+        buffer[i] = previous; // Low-pass filter applied in-place
     }
+
+    for (let i = 0; i < newLength; i++) {
+        const index = Math.round(i * sampleRatio);
+        downsampledBuffer[i] = buffer[index];
+    }
+
     return downsampledBuffer;
 };
 
-const convertToPCMU = (buffer) => {
-    const MULAW_MAX = 0x7F;
-    const MULAW_BIAS = 132;
 
+const convertToPCMU = (buffer) => {
     return buffer.map((sample) => {
-        let sign = sample < 0 ? -1 : 1;
-        sample = Math.min(Math.abs(sample), 1) * 32767; // Convert to 16-bit PCM
-        sample = Math.log(1 + MULAW_BIAS * sample / 32767) / Math.log(1 + MULAW_BIAS);
-        sample = Math.round(sign * sample * MULAW_MAX);
-        return (sample + MULAW_MAX) & 0xFF; // Unsigned 8-bit value
+        const mulawSample = 127.5 * Math.log(1 + 255 * Math.abs(sample)) / Math.log(1 + 255);
+        return sample < 0 ? -mulawSample : mulawSample;
     });
 };
 
-
-let sequenceNumber = 0;
-let timestamp = 0;
-
-const createRTPHeader = (sequenceNumber, timestamp) => {
-    const version = 2; // RTP version 2
-    const padding = 0; // No padding
-    const extension = 0; // No extension
-    const csrcCount = 0; // No CSRC identifiers
-    const marker = 0; // No marker
-    const payloadType = 0; // PCMU payload type (G.711 μ-law)
-
-    const firstByte = (version << 6) | (padding << 5) | (extension << 4) | csrcCount;
-    const secondByte = (marker << 7) | payloadType;
-
-    const header = new Uint8Array(12);
-    header[0] = firstByte;
-    header[1] = secondByte;
-    header[2] = (sequenceNumber >> 8) & 0xff; // Sequence number (high byte)
-    header[3] = sequenceNumber & 0xff; // Sequence number (low byte)
-    header[4] = (timestamp >> 24) & 0xff; // Timestamp (high byte)
-    header[5] = (timestamp >> 16) & 0xff;
-    header[6] = (timestamp >> 8) & 0xff;
-    header[7] = timestamp & 0xff; // Timestamp (low byte)
-    header[8] = 0x00; // SSRC (hardcoded for simplicity)
-    header[9] = 0x00;
-    header[10] = 0x00;
-    header[11] = 0x01;
-
-    return header;
-};
-
-const rtpPacketize = (pcmuData, samplesPerPacket) => {
-    const packets = [];
-    for (let i = 0; i < pcmuData.length; i += samplesPerPacket) {
-        const header = createRTPHeader(sequenceNumber++, timestamp);
-        const payload = pcmuData.slice(i, i + samplesPerPacket);
-        const packet = new Uint8Array(header.length + payload.length);
-
-        packet.set(header);
-        packet.set(payload, header.length);
-
-        packets.push(packet);
-
-        timestamp += samplesPerPacket;
-    }
-    return packets;
+const rtpPacketize = (pcmuData) => {
+    const packetSize = 800;
+    const packet = pcmuData.slice(0, packetSize);
+    return new Uint8Array(packet);
 };
 
 const encodeToBase64 = (data) => {
