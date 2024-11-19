@@ -1,24 +1,35 @@
-let pcmBuffer = [];
+let pcmBuffer = new Uint8Array();
 
 self.onmessage = async (event) => {
     const { command, data } = event.data;
 
     if (command === "process") {
         try {
-            const pcmData = new Int16Array(data);
-            pcmBuffer = pcmBuffer.concat(Array.from(pcmData));
+            const newBuffer = new Uint8Array(data);
+            const combinedBuffer = new Uint8Array(
+                pcmBuffer.length + newBuffer.length
+            );
+            combinedBuffer.set(pcmBuffer);
+            combinedBuffer.set(newBuffer, pcmBuffer.length);
 
-            const samplesNeeded = 960;
-            while (pcmBuffer.length >= samplesNeeded) {
-                const chunk = pcmBuffer.slice(0, samplesNeeded);
-                pcmBuffer = pcmBuffer.slice(samplesNeeded);
+            // Ensure the buffer length is a multiple of 2
+            const processableLength =
+                combinedBuffer.length - (combinedBuffer.length % 2);
+            const processableData = combinedBuffer.subarray(
+                0,
+                processableLength
+            );
 
-                const resampledPCM = resample(new Int16Array(chunk), 48000, 8000);
-                const pcMuData = encodeSamplesToPCMU(resampledPCM);
-                const packets = sliceIntoPackets(pcMuData, 160);
+            // Save residual data
+            pcmBuffer = combinedBuffer.subarray(processableLength);
 
-                self.postMessage({ command: "processed", data: packets });
-            }
+            // Process aligned PCM data
+            const pcmData = new Int16Array(processableData.buffer);
+            const resampledPCM = resample(pcmData, 48000, 8000);
+            const pcMuData = encodeSamplesToPCMU(resampledPCM);
+            const packets = sliceIntoPackets(pcMuData, 160); // 160 samples per packet (20 ms at 8 kHz)
+
+            self.postMessage({ command: "processed", data: packets });
         } catch (error) {
             console.error("Error processing audio data:", error);
         }

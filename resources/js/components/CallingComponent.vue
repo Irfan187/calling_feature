@@ -98,15 +98,21 @@ audioEncoder.onmessage = async (event) => {
 
     if (command === 'processed') {
         if (ws && ws.readyState === WebSocket.OPEN) {
-            const rtpPacket = createRTPPacket(data);
-            const base64Payload = encodeRTPToBase64(rtpPacket);
-            let payload = {
-                "event": "media",
-                "media": {
-                    "payload": base64Payload
+            if (Array.isArray(data)) {
+                for (const pcmuPacket of data) {
+                    const rtpPacket = createRTPPacket(pcmuPacket);
+                    const base64Payload = encodeRTPToBase64(rtpPacket);
+                    const payload = {
+                        event: "media",
+                        media: {
+                            payload: base64Payload
+                        }
+                    };
+                    ws.send(JSON.stringify(payload));
                 }
-            };
-            ws.send(JSON.stringify(payload));
+            } else {
+                console.warn("Expected an array of PCMU packets but received:", data);
+            }
         }
     }
 };
@@ -172,12 +178,12 @@ const createConference = async () => {
     try {
         await axios.post('/api/conference-create', data)
             .then(async (response) => {
-                
+
                 conference_id.value = response.data;
                 conference_created.value = true;
             })
             .catch(async (error) => {
-                
+
             });;
 
     } catch (error) {
@@ -196,7 +202,7 @@ const joinConference = async () => {
                 console.log(response);
             })
             .catch(async (error) => {
-                
+
             });
 
     } catch (error) {
