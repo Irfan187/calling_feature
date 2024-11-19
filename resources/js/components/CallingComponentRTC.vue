@@ -51,33 +51,24 @@ const startRecording = async () => {
 
         processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-        let packetBuffer = [];
-        const SAMPLES_PER_PACKET = 160;
-        const BATCH_INTERVAL_MS = 100;
-
         processor.onaudioprocess = (event) => {
             const inputBuffer = event.inputBuffer.getChannelData(0);
             const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, sampleRate);
             const pcmuData = convertToPCMU(downsampledBuffer);
 
+            const SAMPLES_PER_PACKET = 160;
             const rtpPackets = rtpPacketize(pcmuData, SAMPLES_PER_PACKET);
-            packetBuffer.push(...rtpPackets);
 
-            const currentTime = performance.now();
-            if (currentTime - lastSentTime >= BATCH_INTERVAL_MS) {
-                const batch = packetBuffer.splice(0);
-                const base64Batch = batch.map(packet => encodeToBase64(packet));
-
+            rtpPackets.forEach((packet) => {
+                const base64Packet = encodeToBase64(packet);
                 const payload = {
                     event: "media",
                     media: {
-                        payloads: base64Batch,
+                        payload: base64Packet,
                     },
                 };
-
                 ws.send(JSON.stringify(payload));
-                lastSentTime = currentTime;
-            }
+            });
         };
 
         sourceNode.connect(processor);
@@ -142,7 +133,7 @@ const createRTPHeader = (sequenceNumber, timestamp) => {
     header[5] = (timestamp >> 16) & 0xff;
     header[6] = (timestamp >> 8) & 0xff;
     header[7] = timestamp & 0xff; // Timestamp (low byte)
-    header[8] = 0x00; // SSRC
+    header[8] = 0x00; // SSRC (hardcoded for simplicity)
     header[9] = 0x00;
     header[10] = 0x00;
     header[11] = 0x01;
