@@ -35,13 +35,7 @@ let sourceNode = null;
 const pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
 
 const startRecording = async () => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Your browser does not support audio recording.");
-        return;
-    }
-
     try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
         await audioContext.audioWorklet.addModule('../pcmEncoder.js');
