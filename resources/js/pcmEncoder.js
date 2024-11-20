@@ -5,27 +5,24 @@ class PCMProcessor extends AudioWorkletProcessor {
 
     process(inputs, outputs, parameters) {
         const input = inputs[0];
-        const sampleRate = 48000;
+        if (!input || !input[0]) {
+            return true;
+        }
 
         const channelData = input[0];
+        const sampleRate = 48000;
         const downsampledBuffer = this.downsampleBuffer(
             channelData,
             sampleRate,
             8000
         );
+        const pcmuPacket = this.convertToPCMU(downsampledBuffer);
+        const rtpPacketBase64 = this.encodeToBase64(
+            this.rtpPacketize(pcmuPacket)
+        );
 
-        if (downsampledBuffer.length === 0) {
-            return true; // Skip processing if downsampled buffer is empty
-        }
+        this.port.postMessage({ rtpPacketBase64 });
 
-        const pcmuData = this.convertToPCMU(downsampledBuffer);
-        const rtpPacket = this.rtpPacketize(pcmuData);
-
-        if (this.port) {
-            this.port.postMessage({ rtpPacket });
-        } else {
-            console.warn("Port is not connected");
-        }
         return true;
     }
 
@@ -101,6 +98,10 @@ class PCMProcessor extends AudioWorkletProcessor {
     rtpPacketize(pcmuData) {
         const packetSize = 800;
         return new Uint8Array(pcmuData.slice(0, packetSize));
+    }
+
+    encodeToBase64(data) {
+        return btoa(String.fromCharCode(...data));
     }
 }
 

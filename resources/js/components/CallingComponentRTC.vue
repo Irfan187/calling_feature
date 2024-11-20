@@ -36,33 +36,33 @@ let pcmEncoder = null;
 
 const startRecording = async () => {
     try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
         await audioContext.audioWorklet.addModule(new URL('../pcmEncoder.js', import.meta.url));
-        pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
+        sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        const pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
 
         pcmEncoder.port.onmessage = (event) => {
-            const { rtpPacket } = event.data;
-            console.log(rtpPacket);
-            const rtpPacketBase64 = encodeToBase64(rtpPacket);
+            const { rtpPacketBase64 } = event.data;
 
-            ws.send(
-                JSON.stringify({
-                    event: "media",
-                    media: { payload: rtpPacketBase64 },
-                })
-            );
+            let payload = {
+                "event": "media",
+                "media": {
+                    "payload": rtpPacketBase64
+                }
+            };
+
+            ws.send(JSON.stringify(payload));
         };
 
-        sourceNode = audioContext.createMediaStreamSource(mediaStream);
         sourceNode.connect(pcmEncoder);
-    } catch (error) {
-        console.error("Error accessing microphone:", error);
-    }
-};
+        pcmEncoder.connect(audioContext.destination);
 
-const encodeToBase64 = (data) => {
-    return btoa(String.fromCharCode(...data));
+        console.log("Recording started...");
+    } catch (error) {
+        console.error("Error accessing microphone or initializing recording:", error);
+    }
 };
 
 const makeCall = async () => {
