@@ -45,7 +45,7 @@ let audioChunks = [];
 let ws = null;
 let audioContext = null;
 let recordingInterval;
-let audioEncoder = new Worker(new URL('../audioEncoder.js', import.meta.url), { type: 'module' });
+let audioEncoder = new Worker(new URL('../mp3Encoder.js', import.meta.url), { type: 'module' });
 
 const conference_created = ref(false);
 const conference_id = ref();

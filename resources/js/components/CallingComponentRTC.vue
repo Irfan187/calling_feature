@@ -22,8 +22,6 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios';
-import { MediaRecorder, register } from 'extendable-media-recorder';
-import { connect } from 'extendable-media-recorder-wav-encoder';
 
 const to = ref('+17274257260');
 const from = ref('+16265401233');
@@ -33,8 +31,8 @@ let ws = null;
 let audioContext = null;
 
 let mediaStream = null;
-let processor = null;
 let sourceNode = null;
+const pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
 
 const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -46,94 +44,24 @@ const startRecording = async () => {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        const sampleRate = 8000;
-        sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        await audioContext.audioWorklet.addModule('../pcmEncoder.js');
+        pcmEncoder.port.onmessage = (event) => {
+            const { rtpPacket } = event.data;
+            const rtpPacketBase64 = encodeToBase64(rtpPacket);
 
-        processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-        processor.onaudioprocess = (event) => {
-            const inputBuffer = event.inputBuffer.getChannelData(0);
-            const downsampledBuffer = downsampleBuffer(inputBuffer, audioContext.sampleRate, sampleRate);
-            const pcmuPacket = convertToPCMU(downsampledBuffer);
-            const rtpPacketBase64 = encodeToBase64(rtpPacketize(pcmuPacket));
-
-            let payload = {
-                "event": "media",
-                "media": {
-                    "payload": rtpPacketBase64
-                }
-            };
-            ws.send(JSON.stringify(payload));
+            ws.send(
+                JSON.stringify({
+                    event: "media",
+                    media: { payload: rtpPacketBase64 },
+                })
+            );
         };
 
-        sourceNode.connect(processor);
+        sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        sourceNode.connect(pcmEncoder);
     } catch (error) {
         console.error("Error accessing microphone:", error);
     }
-};
-
-const downsampleBuffer = (buffer, inputSampleRate, outputSampleRate) => {
-    if (outputSampleRate === inputSampleRate) {
-        return buffer;
-    }
-
-    const sampleRatio = inputSampleRate / outputSampleRate;
-    const newLength = Math.floor(buffer.length / sampleRatio);
-    const downsampledBuffer = new Float32Array(newLength);
-
-    const filterLength = 21;
-    const cutoffFreq = outputSampleRate / 2;
-    const filter = designFIRFilter(filterLength, cutoffFreq, inputSampleRate);
-
-    for (let i = 0; i < newLength; i++) {
-        const start = Math.floor(i * sampleRatio);
-        let sum = 0;
-        for (let j = 0; j < filter.length; j++) {
-            if (start + j < buffer.length) {
-                sum += buffer[start + j] * filter[j];
-            }
-        }
-        downsampledBuffer[i] = sum;
-    }
-
-    return downsampledBuffer;
-};
-
-const designFIRFilter = (length, cutoff, sampleRate) => {
-    const filter = new Float32Array(length);
-    const middle = Math.floor(length / 2);
-    for (let i = 0; i < length; i++) {
-        if (i === middle) {
-            filter[i] = 2 * cutoff / sampleRate;
-        } else {
-            const numerator = Math.sin(2 * Math.PI * cutoff * (i - middle) / sampleRate);
-            const denominator = Math.PI * (i - middle);
-            filter[i] = numerator / denominator;
-        }
-        filter[i] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (length - 1));
-    }
-    return filter;
-};
-
-const convertToPCMU = (buffer) => {
-    const PCM_MAX = 32767; // Maximum PCM value
-    const PCM_MIN = -32768; // Minimum PCM value
-
-    const muLawEncode = (sample) => {
-        const MU = 255;
-        const clamped = Math.max(Math.min(sample, PCM_MAX), PCM_MIN);
-        const magnitude = Math.log(1 + MU * Math.abs(clamped / PCM_MAX)) / Math.log(1 + MU);
-        const sign = clamped < 0 ? 0 : 0x80;
-        return ~(sign | (magnitude * 0x7F));
-    };
-
-    return new Uint8Array(buffer.map((sample) => muLawEncode(sample * PCM_MAX)));
-};
-
-const rtpPacketize = (pcmuData) => {
-    const packetSize = 800;
-    const packet = pcmuData.slice(0, packetSize);
-    return new Uint8Array(packet);
 };
 
 const encodeToBase64 = (data) => {
@@ -245,7 +173,7 @@ const handleStopEvent = (stopData) => {
     callStatus.value = 'Call Stopped';
     ws.close();
     sourceNode.disconnect();
-    processor.disconnect();
+    pcmEncoder.disconnect();
     mediaStream.getTracks().forEach((track) => track.stop());
     audioContext.close();
 };
