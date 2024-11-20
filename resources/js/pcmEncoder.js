@@ -100,12 +100,6 @@ class PCMProcessor extends AudioWorkletProcessor {
 
     rtpPacketize(pcmuData) {
         const packetSize = 800;
-        if (pcmuData.length < packetSize) {
-            // Pad the packet with silence (0xFF in μ-law) if it's too short
-            const padded = new Uint8Array(packetSize).fill(0xff);
-            padded.set(pcmuData);
-            return padded;
-        }
         return new Uint8Array(pcmuData.slice(0, packetSize));
     }
 }
