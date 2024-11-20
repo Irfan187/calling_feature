@@ -35,14 +35,10 @@ class PCMProcessor extends AudioWorkletProcessor {
         }
 
         const sampleRatio = inputSampleRate / outputSampleRate;
-        if (buffer.length < sampleRatio) {
-            return new Float32Array(0); // Return empty buffer for edge cases
-        }
-
         const newLength = Math.floor(buffer.length / sampleRatio);
         const downsampledBuffer = new Float32Array(newLength);
 
-        const filterLength = Math.ceil(inputSampleRate / outputSampleRate) * 10;
+        const filterLength = 21;
         const cutoffFreq = outputSampleRate / 2;
         const filter = this.designFIRFilter(
             filterLength,
