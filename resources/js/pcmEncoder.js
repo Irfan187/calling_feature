@@ -110,7 +110,7 @@ class PCMProcessor extends AudioWorkletProcessor {
             padded.set(pcmuData);
             return padded;
         }
-        return pcmuData.slice(0, packetSize);
+        return new Uint8Array(pcmuData.slice(0, packetSize));
     }
 }
 

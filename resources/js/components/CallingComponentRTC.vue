@@ -43,6 +43,7 @@ const startRecording = async () => {
 
         pcmEncoder.port.onmessage = (event) => {
             const { rtpPacket } = event.data;
+            console.log(rtpPacket);
             const rtpPacketBase64 = encodeToBase64(rtpPacket);
 
             ws.send(
