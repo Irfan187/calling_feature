@@ -37,8 +37,8 @@ const pcmEncoder = null;
 const startRecording = async () => {
     try {
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        await audioContext.audioWorklet.addModule('../pcmEncoder.js');
+
+        await audioContext.audioWorklet.addModule(new URL('../pcmEncoder.js', import.meta.url));
         pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
 
         pcmEncoder.port.onmessage = (event) => {
