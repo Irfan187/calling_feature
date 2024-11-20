@@ -5,18 +5,26 @@ class PCMProcessor extends AudioWorkletProcessor {
 
     process(inputs, outputs, parameters) {
         const input = inputs[0];
-        if (input.length > 0) {
-            const channelData = input[0];
-            const downsampledBuffer = this.downsampleBuffer(
-                channelData,
-                sampleRate,
-                8000
-            );
+        const sampleRate = 48000;
 
-            const pcmuData = this.convertToPCMU(downsampledBuffer);
-            const rtpPacket = this.rtpPacketize(pcmuData);
+        const channelData = input[0];
+        const downsampledBuffer = this.downsampleBuffer(
+            channelData,
+            sampleRate,
+            8000
+        );
 
+        if (downsampledBuffer.length === 0) {
+            return true; // Skip processing if downsampled buffer is empty
+        }
+
+        const pcmuData = this.convertToPCMU(downsampledBuffer);
+        const rtpPacket = this.rtpPacketize(pcmuData);
+
+        if (this.port) {
             this.port.postMessage({ rtpPacket });
+        } else {
+            console.warn("Port is not connected");
         }
         return true;
     }
@@ -27,12 +35,16 @@ class PCMProcessor extends AudioWorkletProcessor {
         }
 
         const sampleRatio = inputSampleRate / outputSampleRate;
+        if (buffer.length < sampleRatio) {
+            return new Float32Array(0); // Return empty buffer for edge cases
+        }
+
         const newLength = Math.floor(buffer.length / sampleRatio);
         const downsampledBuffer = new Float32Array(newLength);
 
-        const filterLength = 21;
+        const filterLength = Math.ceil(inputSampleRate / outputSampleRate) * 10;
         const cutoffFreq = outputSampleRate / 2;
-        const filter = designFIRFilter(
+        const filter = this.designFIRFilter(
             filterLength,
             cutoffFreq,
             inputSampleRate
@@ -92,8 +104,13 @@ class PCMProcessor extends AudioWorkletProcessor {
 
     rtpPacketize(pcmuData) {
         const packetSize = 800;
-        const packet = pcmuData.slice(0, packetSize);
-        return new Uint8Array(packet);
+        if (pcmuData.length < packetSize) {
+            // Pad the packet with silence (0xFF in μ-law) if it's too short
+            const padded = new Uint8Array(packetSize).fill(0xff);
+            padded.set(pcmuData);
+            return padded;
+        }
+        return pcmuData.slice(0, packetSize);
     }
 }
 
