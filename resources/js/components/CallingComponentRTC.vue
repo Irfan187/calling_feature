@@ -37,9 +37,10 @@ const pcmEncoder = null;
 const startRecording = async () => {
     try {
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
         
         await audioContext.audioWorklet.addModule('../pcmEncoder.js');
+        pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
+
         pcmEncoder.port.onmessage = (event) => {
             const { rtpPacket } = event.data;
             const rtpPacketBase64 = encodeToBase64(rtpPacket);
