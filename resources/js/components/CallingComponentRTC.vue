@@ -32,7 +32,7 @@ let audioContext = null;
 
 let mediaStream = null;
 let sourceNode = null;
-const pcmEncoder = null;
+let pcmEncoder = null;
 
 const startRecording = async () => {
     try {
