@@ -17,11 +17,9 @@ class PCMProcessor extends AudioWorkletProcessor {
             8000
         );
         const pcmuPacket = this.convertToPCMU(downsampledBuffer);
-        const rtpPacketBase64 = this.encodeToBase64(
-            this.rtpPacketize(pcmuPacket)
-        );
+        const rtpPacket = this.rtpPacketize(pcmuPacket);
 
-        this.port.postMessage({ rtpPacketBase64 });
+        this.port.postMessage({ rtpPacket });
 
         return true;
     }
@@ -98,10 +96,6 @@ class PCMProcessor extends AudioWorkletProcessor {
     rtpPacketize(pcmuData) {
         const packetSize = 800;
         return new Uint8Array(pcmuData.slice(0, packetSize));
-    }
-
-    encodeToBase64(data) {
-        return btoa(String.fromCharCode(...data));
     }
 }
 

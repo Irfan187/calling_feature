@@ -43,12 +43,12 @@ const startRecording = async () => {
         const pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
 
         pcmEncoder.port.onmessage = (event) => {
-            const { rtpPacketBase64 } = event.data;
+            const { rtpPacket } = event.data;
 
             let payload = {
                 "event": "media",
                 "media": {
-                    "payload": rtpPacketBase64
+                    "payload": btoa(String.fromCharCode(...rtpPacket))
                 }
             };
 
