@@ -52,7 +52,6 @@ const startRecording = async () => {
 
         pcmEncoder.port.onmessage = (event) => {
             const { rtpPacket } = event.data;
-            console.log(btoa(String.fromCharCode(...rtpPacket)));
             let payload = {
                 "event": "media",
                 "media": {
@@ -70,10 +69,7 @@ const startRecording = async () => {
 };
 
 const makeCall = async () => {
-    ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
-    startRecording();
-
-    /* const data = {
+    const data = {
         to: to.value,
         from: from.value,
     };
@@ -82,7 +78,7 @@ const makeCall = async () => {
         initializeWebSocketAndAudio();
     } catch (error) {
         console.error('Error making call:', error);
-    } */
+    }
 };
 
 const initializeWebSocketAndAudio = () => {
