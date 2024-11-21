@@ -52,7 +52,7 @@ const startRecording = async () => {
 
         pcmEncoder.port.onmessage = (event) => {
             const { rtpPacket } = event.data;
-            console.log(rtpPacket);
+            console.log(btoa(String.fromCharCode(...rtpPacket)));
             let payload = {
                 "event": "media",
                 "media": {

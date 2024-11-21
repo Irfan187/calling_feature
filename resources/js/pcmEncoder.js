@@ -3,6 +3,12 @@ class PCMProcessor extends AudioWorkletProcessor {
         return [];
     }
 
+    constructor() {
+        super();
+        this.buffer = [];
+        this.targetSamples = 160;
+    }
+
     process(inputs, outputs, parameters) {
         const input = inputs[0];
         if (!input || !input[0]) {
@@ -10,16 +16,19 @@ class PCMProcessor extends AudioWorkletProcessor {
         }
 
         const channelData = input[0];
-        const sampleRate = 48000;
         const downsampledBuffer = this.downsampleBuffer(
             channelData,
-            sampleRate,
+            48000,
             8000
         );
-        const pcmuPacket = this.convertToPCMU(downsampledBuffer);
-        const rtpPacket = this.rtpPacketize(pcmuPacket);
+        this.buffer.push(...downsampledBuffer);
 
-        this.port.postMessage({ rtpPacket });
+        while (this.buffer.length >= this.targetSamples) {
+            const packet = this.buffer.splice(0, this.targetSamples);
+            const pcmuPacket = this.convertToPCMU(packet);
+            const rtpPacketBase64 = this.rtpPacketize(pcmuPacket);
+            this.port.postMessage({ rtpPacketBase64 });
+        }
 
         return true;
     }
