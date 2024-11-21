@@ -58,8 +58,9 @@ const startRecording = async () => {
                     "payload": btoa(String.fromCharCode(...rtpPacket))
                 }
             };
-
-            ws.send(JSON.stringify(payload));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(payload));
+            }
         };
 
         sourceNode.connect(pcmEncoder);
