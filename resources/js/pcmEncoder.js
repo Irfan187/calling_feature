@@ -26,14 +26,14 @@ class PCMProcessor extends AudioWorkletProcessor {
 
         const currentTimeMs = currentTime * 1000;
 
-        if (
-            currentTimeMs - this.lastPacketTime >= 20 &&
-            this.buffer.length >= this.targetSamples
-        ) {
-            const packet = this.buffer.splice(0, this.targetSamples);
-            const pcmuPacket = this.convertToPCMU(packet);
-            const rtpPacket = this.rtpPacketize(pcmuPacket);
-            this.port.postMessage({ rtpPacket });
+        if (currentTimeMs - this.lastPacketTime >= 20) {
+            if (this.buffer.length >= this.targetSamples) {
+                const packet = this.buffer.splice(0, this.targetSamples);
+                const pcmuPacket = this.convertToPCMU(packet);
+                const rtpPacket = this.rtpPacketize(pcmuPacket);
+                this.port.postMessage({ rtpPacket });
+            }
+            this.lastPacketTime = currentTimeMs;
         }
 
         return true;
@@ -48,7 +48,9 @@ class PCMProcessor extends AudioWorkletProcessor {
         const newLength = Math.floor(buffer.length / sampleRatio);
         const downsampledBuffer = new Float32Array(newLength);
 
-        const filterLength = Math.ceil((inputSampleRate / outputSampleRate) * 10);
+        const filterLength = Math.ceil(
+            (inputSampleRate / outputSampleRate) * 10
+        );
         const cutoffFreq = outputSampleRate / 2;
         const filter = this.designFIRFilter(
             filterLength,
