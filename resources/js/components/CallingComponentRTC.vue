@@ -36,30 +36,9 @@ let mediaStream = null;
 let sourceNode = null;
 let pcmEncoder = null;
 
-const createRTPPacket = (payload, sequenceNumber, timestamp) => {
-    const rtpHeader = new Uint8Array(12);
-    rtpHeader[0] = 0x80;
-    rtpHeader[1] = 0x00;
-    rtpHeader[2] = (sequenceNumber >> 8) & 0xff;
-    rtpHeader[3] = sequenceNumber & 0xff;
-    rtpHeader[4] = (timestamp >> 24) & 0xff;
-    rtpHeader[5] = (timestamp >> 16) & 0xff;
-    rtpHeader[6] = (timestamp >> 8) & 0xff;
-    rtpHeader[7] = timestamp & 0xff;
-    const ssrc = 0x12345678;
-    rtpHeader[8] = (ssrc >> 24) & 0xff;
-    rtpHeader[9] = (ssrc >> 16) & 0xff;
-    rtpHeader[10] = (ssrc >> 8) & 0xff;
-    rtpHeader[11] = ssrc & 0xff;
-    return new Uint8Array([...rtpHeader, ...payload]);
-};
-
 const startRecording = async () => {
     const pcmuBuffer = [];
     const targetSamples = 160;
-
-    let sequenceNumber = 0;
-    let timestamp = 0;
 
     try {
         if (!recordingAudioContext) {
@@ -80,10 +59,7 @@ const startRecording = async () => {
 
             if (pcmuBuffer.length >= targetSamples) {
                 const rtpPayload = pcmuBuffer.splice(0, targetSamples);
-                const rtpPacket = createRTPPacket(rtpPayload, sequenceNumber, timestamp);
-
-                sequenceNumber = (sequenceNumber + 1) & 0xffff;
-                timestamp += targetSamples;
+                const rtpPacket = new Uint8Array(rtpPayload);
 
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     const base64Packet = btoa(String.fromCharCode(...rtpPacket));
