@@ -36,7 +36,31 @@ let mediaStream = null;
 let sourceNode = null;
 let pcmEncoder = null;
 
+const createRTPPacket = (payload, sequenceNumber, timestamp) => {
+    const rtpHeader = new Uint8Array(12);
+    rtpHeader[0] = 0x80;
+    rtpHeader[1] = 0x00;
+    rtpHeader[2] = (sequenceNumber >> 8) & 0xff;
+    rtpHeader[3] = sequenceNumber & 0xff;
+    rtpHeader[4] = (timestamp >> 24) & 0xff;
+    rtpHeader[5] = (timestamp >> 16) & 0xff;
+    rtpHeader[6] = (timestamp >> 8) & 0xff;
+    rtpHeader[7] = timestamp & 0xff;
+    const ssrc = 0x12345678;
+    rtpHeader[8] = (ssrc >> 24) & 0xff;
+    rtpHeader[9] = (ssrc >> 16) & 0xff;
+    rtpHeader[10] = (ssrc >> 8) & 0xff;
+    rtpHeader[11] = ssrc & 0xff;
+    return new Uint8Array([...rtpHeader, ...payload]);
+};
+
 const startRecording = async () => {
+    const pcmuBuffer = [];
+    const targetSamples = 160;
+
+    let sequenceNumber = 0;
+    let timestamp = 0;
+
     try {
         if (!recordingAudioContext) {
             recordingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -51,15 +75,20 @@ const startRecording = async () => {
         pcmEncoder = new AudioWorkletNode(recordingAudioContext, 'pcmEncoder');
 
         pcmEncoder.port.onmessage = (event) => {
-            const { rtpPacket } = event.data;
-            let payload = {
-                "event": "media",
-                "media": {
-                    "payload": btoa(String.fromCharCode(...rtpPacket))
+            const { pcmuPacket } = event.data;
+            pcmuBuffer.push(...pcmuPacket);
+
+            if (pcmuBuffer.length >= targetSamples) {
+                const rtpPayload = pcmuBuffer.splice(0, targetSamples);
+                const rtpPacket = createRTPPacket(rtpPayload, sequenceNumber, timestamp);
+
+                sequenceNumber = (sequenceNumber + 1) & 0xffff;
+                timestamp += targetSamples;
+
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    const base64Packet = btoa(String.fromCharCode(...rtpPacket));
+                    ws.send(base64Packet);
                 }
-            };
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(payload));
             }
         };
 

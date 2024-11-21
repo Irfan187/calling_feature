@@ -2,9 +2,6 @@ class PCMProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.buffer = [];
-        this.targetSamples = 160; // 20ms of audio at 8kHz
-        this.lastPacketTime = 0; // Last time a packet was sent
-        this.timerInitialized = false; // Ensure timer is only set up once
     }
 
     process(inputs, outputs, parameters) {
@@ -13,44 +10,17 @@ class PCMProcessor extends AudioWorkletProcessor {
             return true;
         }
 
-        // Accumulate downsampled audio into the buffer
         const channelData = input[0];
         const downsampledBuffer = this.downsampleBuffer(
             channelData,
             sampleRate,
             8000
         );
-        this.buffer.push(...downsampledBuffer);
+        const pcmuPacket = this.convertToPCMU(downsampledBuffer);
 
-        // Start the timer if not already initialized
-        if (!this.timerInitialized) {
-            this.startPacketTimer();
-            this.timerInitialized = true;
-        }
+        this.port.postMessage({ pcmuPacket });
 
         return true;
-    }
-
-    startPacketTimer() {
-        const intervalMs = 20; // 20ms for 8kHz packets
-
-        const sendPacket = () => {
-            if (this.buffer.length >= this.targetSamples) {
-                // Prepare a packet from the buffer
-                const packet = this.buffer.splice(0, this.targetSamples);
-                const pcmuPacket = this.convertToPCMU(packet);
-                const rtpPacket = this.rtpPacketize(pcmuPacket);
-
-                // Send the packet
-                this.port.postMessage({ rtpPacket });
-            }
-
-            // Re-schedule the next packet
-            setTimeout(sendPacket, intervalMs);
-        };
-
-        // Start the first packet timer
-        setTimeout(sendPacket, intervalMs);
     }
 
     downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
@@ -122,11 +92,6 @@ class PCMProcessor extends AudioWorkletProcessor {
         return new Uint8Array(
             buffer.map((sample) => muLawEncode(sample * PCM_MAX))
         );
-    }
-
-    rtpPacketize(pcmuData) {
-        const packetSize = 160; // Matches the target sample size
-        return new Uint8Array(pcmuData.slice(0, packetSize));
     }
 }
 
