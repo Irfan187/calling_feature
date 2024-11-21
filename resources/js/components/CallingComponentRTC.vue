@@ -87,12 +87,12 @@ const startRecording = async () => {
 
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     const base64Packet = btoa(String.fromCharCode(...rtpPacket));
-                    ws.send({
+                    ws.send(JSON.stringify({
                         "event": "media",
                         "media": {
                             "payload": base64Packet
                         }
-                    });
+                    }));
                 }
             }
         };
