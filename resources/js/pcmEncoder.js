@@ -1,13 +1,10 @@
 class PCMProcessor extends AudioWorkletProcessor {
-    static get parameterDescriptors() {
-        return [];
-    }
-
     constructor() {
         super();
         this.buffer = [];
-        this.targetSamples = 160;
-        this.lastPacketTime = 0;
+        this.targetSamples = 160; // 20ms of audio at 8kHz
+        this.lastPacketTime = 0; // Last time a packet was sent
+        this.timerInitialized = false; // Ensure timer is only set up once
     }
 
     process(inputs, outputs, parameters) {
@@ -16,6 +13,7 @@ class PCMProcessor extends AudioWorkletProcessor {
             return true;
         }
 
+        // Accumulate downsampled audio into the buffer
         const channelData = input[0];
         const downsampledBuffer = this.downsampleBuffer(
             channelData,
@@ -24,19 +22,35 @@ class PCMProcessor extends AudioWorkletProcessor {
         );
         this.buffer.push(...downsampledBuffer);
 
-        const currentTimeMs = currentTime * 1000;
-
-        if (currentTimeMs - this.lastPacketTime >= 20) {
-            if (this.buffer.length >= this.targetSamples) {
-                const packet = this.buffer.splice(0, this.targetSamples);
-                const pcmuPacket = this.convertToPCMU(packet);
-                const rtpPacket = this.rtpPacketize(pcmuPacket);
-                this.port.postMessage({ rtpPacket });
-            }
-            this.lastPacketTime = currentTimeMs;
+        // Start the timer if not already initialized
+        if (!this.timerInitialized) {
+            this.startPacketTimer();
+            this.timerInitialized = true;
         }
 
         return true;
+    }
+
+    startPacketTimer() {
+        const intervalMs = 20; // 20ms for 8kHz packets
+
+        const sendPacket = () => {
+            if (this.buffer.length >= this.targetSamples) {
+                // Prepare a packet from the buffer
+                const packet = this.buffer.splice(0, this.targetSamples);
+                const pcmuPacket = this.convertToPCMU(packet);
+                const rtpPacket = this.rtpPacketize(pcmuPacket);
+
+                // Send the packet
+                this.port.postMessage({ rtpPacket });
+            }
+
+            // Re-schedule the next packet
+            setTimeout(sendPacket, intervalMs);
+        };
+
+        // Start the first packet timer
+        setTimeout(sendPacket, intervalMs);
     }
 
     downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
@@ -111,7 +125,7 @@ class PCMProcessor extends AudioWorkletProcessor {
     }
 
     rtpPacketize(pcmuData) {
-        const packetSize = 800;
+        const packetSize = 160; // Matches the target sample size
         return new Uint8Array(pcmuData.slice(0, packetSize));
     }
 }
