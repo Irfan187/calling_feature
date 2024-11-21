@@ -36,9 +36,71 @@ let mediaStream = null;
 let sourceNode = null;
 let pcmEncoder = null;
 
+
+const designFIRFilter = (length, cutoff, sampleRate) => {
+    const filter = new Float32Array(length);
+    const middle = Math.floor(length / 2);
+    for (let i = 0; i < length; i++) {
+        if (i === middle) {
+            filter[i] = 2 * cutoff / sampleRate;
+        } else {
+            const numerator = Math.sin(2 * Math.PI * cutoff * (i - middle) / sampleRate);
+            const denominator = Math.PI * (i - middle);
+            filter[i] = numerator / denominator;
+        }
+        filter[i] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (length - 1));
+    }
+    return filter;
+};
+
+const downsampleBuffer = (buffer, inputSampleRate, outputSampleRate) => {
+    if (outputSampleRate === inputSampleRate) {
+        return buffer;
+    }
+
+    const sampleRatio = inputSampleRate / outputSampleRate;
+    const newLength = Math.floor(buffer.length / sampleRatio);
+    const downsampledBuffer = new Float32Array(newLength);
+
+    const filterLength = 21;
+    const cutoffFreq = outputSampleRate / 2;
+    const filter = designFIRFilter(filterLength, cutoffFreq, inputSampleRate);
+
+    for (let i = 0; i < newLength; i++) {
+        const start = Math.floor(i * sampleRatio);
+        let sum = 0;
+        for (let j = 0; j < filter.length; j++) {
+            if (start + j < buffer.length) {
+                sum += buffer[start + j] * filter[j];
+            }
+        }
+        downsampledBuffer[i] = sum;
+    }
+
+    return downsampledBuffer;
+};
+
+
+const convertToPCMU = (buffer) => {
+    const PCM_MAX = 32767; // Maximum PCM value
+    const PCM_MIN = -32768; // Minimum PCM value
+
+    const muLawEncode = (sample) => {
+        const MU = 255;
+        const clamped = Math.max(Math.min(sample, PCM_MAX), PCM_MIN);
+        const magnitude = Math.log(1 + MU * Math.abs(clamped / PCM_MAX)) / Math.log(1 + MU);
+        const sign = clamped < 0 ? 0 : 0x80;
+        return ~(sign | (magnitude * 0x7F));
+    };
+
+    return new Uint8Array(buffer.map((sample) => muLawEncode(sample * PCM_MAX)));
+};
+
 const startRecording = async () => {
-    const pcmuBuffer = [];
-    const targetSamples = 160;
+    const pcmuBuffer = []; // Buffer for raw PCMU data
+    const rawAudioBuffer = []; // Accumulate raw audio samples from the worklet
+    const blockSize = 4096; // Block size
+    const targetSamples = 800; // Packet size in samples at 8kHz
 
     try {
         if (!recordingAudioContext) {
@@ -53,22 +115,39 @@ const startRecording = async () => {
         sourceNode = recordingAudioContext.createMediaStreamSource(mediaStream);
         pcmEncoder = new AudioWorkletNode(recordingAudioContext, 'pcmEncoder');
 
+        // Handle incoming data from the worklet
         pcmEncoder.port.onmessage = (event) => {
-            const { pcmuPacket } = event.data;
-            pcmuBuffer.push(...pcmuPacket);
+            const { rawAudio } = event.data;
 
-            if (pcmuBuffer.length >= targetSamples) {
-                const rtpPayload = pcmuBuffer.splice(0, targetSamples);
-                const rtpPacket = new Uint8Array(rtpPayload);
+            // Accumulate raw audio data for buffering (equivalent to ScriptProcessor)
+            rawAudioBuffer.push(...rawAudio);
 
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    const base64Packet = btoa(String.fromCharCode(...rtpPacket));
-                    ws.send(JSON.stringify({
-                        "event": "media",
-                        "media": {
-                            "payload": base64Packet
-                        }
-                    }));
+            // Process the buffer when it reaches the target block size
+            if (rawAudioBuffer.length >= blockSize) {
+                const block = rawAudioBuffer.splice(0, blockSize); // Extract a 4096-sample block
+
+                // Downsample the block to 8kHz
+                const downsampledBuffer = downsampleBuffer(block, recordingAudioContext.sampleRate, 8000);
+
+                // Convert to PCMU and accumulate in the pcmuBuffer
+                const pcmuData = convertToPCMU(downsampledBuffer);
+                pcmuBuffer.push(...pcmuData);
+
+                // Send 800-sample packets
+                while (pcmuBuffer.length >= targetSamples) {
+                    const rtpPayload = pcmuBuffer.splice(0, targetSamples);
+                    const rtpPacket = new Uint8Array(rtpPayload);
+
+                    // Send packet over WebSocket
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const base64Packet = btoa(String.fromCharCode(...rtpPacket));
+                        ws.send(JSON.stringify({
+                            "event": "media",
+                            "media": {
+                                "payload": base64Packet
+                            }
+                        }));
+                    }
                 }
             }
         };

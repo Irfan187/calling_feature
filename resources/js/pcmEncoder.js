@@ -1,97 +1,22 @@
 class PCMProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
-        this.buffer = [];
     }
 
     process(inputs, outputs, parameters) {
         const input = inputs[0];
         if (!input || !input[0]) {
-            return true;
+            return true; // No input; skip processing
         }
 
-        const channelData = input[0];
-        const downsampledBuffer = this.downsampleBuffer(
-            channelData,
-            sampleRate,
-            8000
-        );
-        const pcmuPacket = this.convertToPCMU(downsampledBuffer);
+        const channelData = input[0]; // Get audio data from the first channel
 
-        this.port.postMessage({ pcmuPacket });
+        // Send raw audio data to the main thread
+        this.port.postMessage({
+            rawAudio: Array.from(channelData), // Convert Float32Array to plain array
+        });
 
-        return true;
-    }
-
-    downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
-        if (outputSampleRate === inputSampleRate) {
-            return buffer;
-        }
-
-        const sampleRatio = inputSampleRate / outputSampleRate;
-        const newLength = Math.floor(buffer.length / sampleRatio);
-        const downsampledBuffer = new Float32Array(newLength);
-
-        const filterLength = Math.ceil(
-            (inputSampleRate / outputSampleRate) * 10
-        );
-        const cutoffFreq = outputSampleRate / 2;
-        const filter = this.designFIRFilter(
-            filterLength,
-            cutoffFreq,
-            inputSampleRate
-        );
-
-        for (let i = 0; i < newLength; i++) {
-            const start = Math.floor(i * sampleRatio);
-            let sum = 0;
-            for (let j = 0; j < filter.length; j++) {
-                if (start + j < buffer.length) {
-                    sum += buffer[start + j] * filter[j];
-                }
-            }
-            downsampledBuffer[i] = Math.max(-1, Math.min(1, sum)); // Clamp to [-1, 1]
-        }
-
-        return downsampledBuffer;
-    }
-
-    designFIRFilter(length, cutoff, sampleRate) {
-        const filter = new Float32Array(length);
-        const middle = Math.floor(length / 2);
-        for (let i = 0; i < length; i++) {
-            if (i === middle) {
-                filter[i] = (2 * cutoff) / sampleRate;
-            } else {
-                const numerator = Math.sin(
-                    (2 * Math.PI * cutoff * (i - middle)) / sampleRate
-                );
-                const denominator = Math.PI * (i - middle);
-                filter[i] = numerator / denominator;
-            }
-            filter[i] *=
-                0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (length - 1));
-        }
-        return filter;
-    }
-
-    convertToPCMU(buffer) {
-        const PCM_MAX = 32767; // Maximum PCM value
-        const PCM_MIN = -32768; // Minimum PCM value
-
-        const muLawEncode = (sample) => {
-            const MU = 255;
-            const clamped = Math.max(Math.min(sample, PCM_MAX), PCM_MIN);
-            const magnitude =
-                Math.log(1 + MU * Math.abs(clamped / PCM_MAX)) /
-                Math.log(1 + MU);
-            const sign = clamped < 0 ? 0 : 0x80;
-            return ~(sign | (magnitude * 0x7f));
-        };
-
-        return new Uint8Array(
-            buffer.map((sample) => muLawEncode(sample * PCM_MAX))
-        );
+        return true; // Keep the processor running
     }
 }
 
