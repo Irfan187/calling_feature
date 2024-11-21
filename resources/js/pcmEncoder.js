@@ -6,7 +6,7 @@ class PCMProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.buffer = [];
-        this.targetSamples = 160;
+        this.targetSamples = 4096;
     }
 
     process(inputs, outputs, parameters) {
@@ -58,7 +58,7 @@ class PCMProcessor extends AudioWorkletProcessor {
                     sum += buffer[start + j] * filter[j];
                 }
             }
-            downsampledBuffer[i] = sum;
+            downsampledBuffer[i] = Math.max(-1, Math.min(1, sum)); // Clamp to [-1, 1]
         }
 
         return downsampledBuffer;

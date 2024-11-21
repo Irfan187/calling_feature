@@ -40,7 +40,7 @@ const startRecording = async () => {
     try {
         if (!recordingAudioContext) {
             recordingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        } else if (audioContext.state === 'suspended') {
+        } else if (recordingAudioContext.state === 'suspended') {
             recordingAudioContext.resume();
         }
 
@@ -132,7 +132,7 @@ const handleMediaEvent = async (mediaData) => {
 const playAudio = async (base64Data) => {
     if (!playbackAudioContext) {
         playbackAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } else if (audioContext.state === 'suspended') {
+    } else if (playbackAudioContext.state === 'suspended') {
         playbackAudioContext.resume();
     }
 
@@ -176,7 +176,8 @@ const handleStopEvent = (stopData) => {
     sourceNode.disconnect();
     pcmEncoder.disconnect();
     mediaStream.getTracks().forEach((track) => track.stop());
-    audioContext.close();
+    playbackAudioContext.close();
+    recordingAudioContext.close();
 };
 
 </script>
