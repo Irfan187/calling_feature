@@ -26,8 +26,8 @@ class PCMProcessor extends AudioWorkletProcessor {
         while (this.buffer.length >= this.targetSamples) {
             const packet = this.buffer.splice(0, this.targetSamples);
             const pcmuPacket = this.convertToPCMU(packet);
-            const rtpPacketBase64 = this.rtpPacketize(pcmuPacket);
-            this.port.postMessage({ rtpPacketBase64 });
+            const rtpPacket = this.rtpPacketize(pcmuPacket);
+            this.port.postMessage({ rtpPacket });
         }
 
         return true;
