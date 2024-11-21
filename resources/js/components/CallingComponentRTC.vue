@@ -28,7 +28,9 @@ const from = ref('+16265401233');
 const callStatus = ref('No Active Call');
 const call_control_id = ref('');
 let ws = null;
-let audioContext = null;
+
+let recordingAudioContext = null;
+let playbackAudioContext = null;
 
 let mediaStream = null;
 let sourceNode = null;
@@ -36,15 +38,21 @@ let pcmEncoder = null;
 
 const startRecording = async () => {
     try {
+        if (!recordingAudioContext) {
+            recordingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } else if (audioContext.state === 'suspended') {
+            recordingAudioContext.resume();
+        }
+
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        await audioContext.audioWorklet.addModule(new URL('../pcmEncoder.js', import.meta.url));
-        sourceNode = audioContext.createMediaStreamSource(mediaStream);
-        const pcmEncoder = new AudioWorkletNode(audioContext, 'pcmEncoder');
+        await recordingAudioContext.audioWorklet.addModule(new URL('../pcmEncoder.js', import.meta.url));
+        sourceNode = recordingAudioContext.createMediaStreamSource(mediaStream);
+        pcmEncoder = new AudioWorkletNode(recordingAudioContext, 'pcmEncoder');
 
         pcmEncoder.port.onmessage = (event) => {
             const { rtpPacket } = event.data;
-
+            console.log(rtpPacket);
             let payload = {
                 "event": "media",
                 "media": {
@@ -56,16 +64,16 @@ const startRecording = async () => {
         };
 
         sourceNode.connect(pcmEncoder);
-        pcmEncoder.connect(audioContext.destination);
-
-        console.log("Recording started...");
     } catch (error) {
         console.error("Error accessing microphone or initializing recording:", error);
     }
 };
 
 const makeCall = async () => {
-    const data = {
+    ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
+    startRecording();
+
+    /* const data = {
         to: to.value,
         from: from.value,
     };
@@ -74,16 +82,10 @@ const makeCall = async () => {
         initializeWebSocketAndAudio();
     } catch (error) {
         console.error('Error making call:', error);
-    }
+    } */
 };
 
 const initializeWebSocketAndAudio = () => {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } else if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-
     ws = new WebSocket('wss://callingfeature.scrumad.com:3001');
 
     ws.onerror = (error) => {
@@ -131,6 +133,12 @@ const handleMediaEvent = async (mediaData) => {
 };
 
 const playAudio = async (base64Data) => {
+    if (!playbackAudioContext) {
+        playbackAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } else if (audioContext.state === 'suspended') {
+        playbackAudioContext.resume();
+    }
+
     return new Promise((resolve, reject) => {
         try {
             // Step 1: Decode base64 data to binary data
@@ -144,11 +152,11 @@ const playAudio = async (base64Data) => {
             }
 
             // Step 2: Decode the audio data
-            audioContext.decodeAudioData(arrayBuffer, (audioBuffer) => {
+            playbackAudioContext.decodeAudioData(arrayBuffer, (audioBuffer) => {
                 // Step 3: Play the audio
-                const source = audioContext.createBufferSource();
+                const source = playbackAudioContext.createBufferSource();
                 source.buffer = audioBuffer;
-                source.connect(audioContext.destination);
+                source.connect(playbackAudioContext.destination);
                 source.start(0);
 
                 // Step 4: Resolve the promise when the audio finishes playing
