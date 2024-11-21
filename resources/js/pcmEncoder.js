@@ -6,7 +6,7 @@ class PCMProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.buffer = [];
-        this.targetSamples = 4096;
+        this.targetSamples = 160;
     }
 
     process(inputs, outputs, parameters) {
