@@ -24,6 +24,8 @@ ffmpeg.setFfmpegPath(ffmpegPath.path);
 
 export function pcmuToMp3Base64(pcmuBuffer, callback) {
     const pcmuDecodedBuffer = Buffer.from(pcmuBuffer, "base64");
+    console.log(pcmuDecodedBuffer.slice(0, 16));
+    console.log(pcmuDecodedBuffer.toString('ascii', 0, 4));
 
     const ffmpegProcess = spawn(
         ffmpegPath.path,
