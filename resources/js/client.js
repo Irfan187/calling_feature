@@ -28,8 +28,6 @@ ws.onmessage = (event) => {
             mediaRecorder.ondataavailable = function (e) {
                 chunks.push(e.data);
             }
-
-            
         }
 
         if(eventData.event == 'stop'){

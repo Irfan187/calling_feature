@@ -42,9 +42,9 @@ class TelnyxService
                 'connection_id' => '2472569862463948031',
                 'stream_url' => 'wss://callingfeature.scrumad.com:3001',
                 'stream_track' => 'inbound_track',
-                'preferred_codecs' => 'PCMU',
+                'stream_bidirectional_sampling_rate' => 16000,
                 'stream_bidirectional_mode' => 'rtp',
-                'stream_bidirectional_codec' => 'PCMU'
+                'stream_bidirectional_codec' => 'OPUS'
             ],
         ]);
 
